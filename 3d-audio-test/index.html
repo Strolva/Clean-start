@@ -67,19 +67,6 @@
 
     async function init() {
 
-// 1. Setup the source
-source = audioCtx.createBufferSource();
-source.buffer = buffer;
-source.loop = true;
-
-// 2. THE CROP: Set the loop points
-// Example: If your track is 30 seconds but fades out at 28 seconds:
-source.loopStart = 0; 
-source.loopEnd = buffer.duration - 2.0; // Trim 2 seconds off the end
-
-// 3. Start it
-source.connect(panner).connect(audioCtx.destination);
-source.start(0, 0); // Start at time 0
         
         if (audioCtx) return; // Don't start twice
         audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -100,6 +87,43 @@ source.start(0, 0); // Start at time 0
         } catch (err) {
             console.error("Audio failed to load:", err);
             alert("Make sure mysound.mp3 is in the same folder!");
+
+            async function init() {
+        if (audioCtx) return; // Don't start twice
+        
+        // 1. Initialize the Engine
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        panner = new PannerNode(audioCtx, { panningModel: 'HRTF', distanceModel: 'inverse' });
+
+        try {
+            // 2. Load and Decode the File
+            const resp = await fetch('./mysound.mp3');
+            const arrayBuffer = await resp.arrayBuffer();
+            const buffer = await audioCtx.decodeAudioData(arrayBuffer);
+
+            // 3. Setup the Source with the LOOP CROP
+            source = audioCtx.createBufferSource();
+            source.buffer = buffer;
+            source.loop = true;
+
+            // CHANGE THIS NUMBER: Adjust '- 2.0' to trim the silence at the end of your file
+            source.loopStart = 0; 
+            source.loopEnd = buffer.duration - 2.0; 
+
+            // 4. Connect and Start
+            source.connect(panner).connect(audioCtx.destination);
+            source.start(0); 
+
+            // 5. Update UI
+            startBtn.innerText = "ENGINE RUNNING";
+            startBtn.style.opacity = "0.5";
+            updateSpatialAudio();
+
+        } catch (err) {
+            console.error("Audio failed to load:", err);
+            alert("Make sure mysound.mp3 is in the same folder!");
+        }
+    }
         }
     }
 
