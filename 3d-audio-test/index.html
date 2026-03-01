@@ -2,121 +2,121 @@
 <html>
 <head>
     <title>3D Spatial Trainer</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <style>
-        body { background: #0f172a; color: #38bdf8; font-family: sans-serif; text-align: center; margin: 0; overflow: hidden; }
+        body { background: #0f172a; color: #38bdf8; font-family: sans-serif; text-align: center; margin: 0; touch-action: none; }
+        #container { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; gap: 20px; }
+        
+        /* The Radar (X and Z axis) */
         #radar { 
-            width: 300px; height: 300px; border: 2px solid #38bdf8; 
-            border-radius: 50%; margin: 50px auto; position: relative;
+            width: 280px; height: 280px; border: 2px solid #38bdf8; 
+            border-radius: 50%; position: relative;
             background: radial-gradient(circle, #1e293b 0%, #0f172a 70%);
         }
         #listener { 
             width: 20px; height: 20px; background: white; border-radius: 50%;
-            position: absolute; top: 140px; left: 140px; box-shadow: 0 0 15px white;
+            position: absolute; top: 130px; left: 130px; box-shadow: 0 0 15px white;
         }
         #sound-source {
-            width: 30px; height: 30px; background: #ef4444; border-radius: 50%;
+            width: 50px; height: 50px; background: #ef4444; border-radius: 50%;
             position: absolute; cursor: grab; box-shadow: 0 0 15px #ef4444;
-            display: flex; align-items: center; justify-content: center; color: white; font-size: 10px;
+            display: flex; align-items: center; justify-content: center; color: white; font-weight: bold;
         }
+
+        /* The Height Control (Y axis) */
+        .slider-wrap { width: 280px; display: flex; flex-direction: column; gap: 10px; }
+        input[type=range] { width: 100%; cursor: pointer; }
+        
+        button { padding: 15px 30px; font-size: 1.2rem; background: #38bdf8; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; }
     </style>
 </head>
 <body>
+
+<div id="container">
     <h2>3D POSITIONAL TRAINER</h2>
-    <p>Drag the RED DOT to move the sound in 3D space</p>
     
-    <button id="startBtn" style="padding: 10px 20px;">START AUDIO</button>
+    <button id="startBtn">INITIALIZE 3D ENGINE</button>
 
     <div id="radar">
         <div id="listener"></div>
         <div id="sound-source">DRAG</div>
     </div>
 
-    <script>
-        let audioCtx, panner, source;
+    <div class="slider-wrap">
+        <label>HEIGHT (Above / Below)</label>
+        <input type="range" id="yAxis" min="-10" max="10" step="0.1" value="0">
+        <div style="display:flex; justify-content: space-between; font-size: 0.8rem;">
+            <span>BELOW</span><span>EYE LEVEL</span><span>ABOVE</span>
+        </div>
+    </div>
+</div>
 
-        const startBtn = document.getElementById('startBtn');
-        const sourceDiv = document.getElementById('sound-source');
-        const radar = document.getElementById('radar');
+<script>
+    let audioCtx, panner, source;
+    const radar = document.getElementById('radar');
+    const sourceDiv = document.getElementById('sound-source');
+    const yAxis = document.getElementById('yAxis');
+    const startBtn = document.getElementById('startBtn');
 
-        // Initial Position
-        let posX = 140, posY = 50;
+    let posX = 115, posY = 40; // Initial visual position
+    sourceDiv.style.left = posX + 'px';
+    sourceDiv.style.top = posY + 'px';
+
+    async function init() {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        panner = new PannerNode(audioCtx, { panningModel: 'HRTF', distanceModel: 'inverse' });
+
+        const resp = await fetch('./mysound.mp3');
+        const buffer = await audioCtx.decodeAudioData(await resp.arrayBuffer());
+        source = audioCtx.createBufferSource();
+        source.buffer = buffer;
+        source.loop = true;
+
+        source.connect(panner).connect(audioCtx.destination);
+        source.start();
+        startBtn.style.display = 'none';
+        updateSpatialAudio();
+    }
+
+    function updateSpatialAudio() {
+        if (!panner) return;
+        // X = Left/Right, Z = Front/Back, Y = Up/Down
+        const x3D = (posX - 115) / 20; 
+        const z3D = (posY - 115) / 20; 
+        const y3D = parseFloat(yAxis.value);
+
+        panner.positionX.value = x3D;
+        panner.positionY.value = y3D;
+        panner.positionZ.value = z3D;
+    }
+
+    // UNIFIED DRAG LOGIC (Works for Mouse AND Touch)
+    function handleMove(e) {
+        e.preventDefault();
+        const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+        const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+        
+        const rect = radar.getBoundingClientRect();
+        posX = clientX - rect.left - 25;
+        posY = clientY - rect.top - 25;
+
+        // Keep it inside the radar circle
         sourceDiv.style.left = posX + 'px';
         sourceDiv.style.top = posY + 'px';
+        updateSpatialAudio();
+    }
 
-        async function init3DAudio() {
-            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-            
-            // 1. Setup Panner
-            panner = new PannerNode(audioCtx, {
-                panningModel: 'HRTF',
-                distanceModel: 'inverse'
-            });
+    // Listeners for Mouse
+    sourceDiv.onmousedown = () => { window.onmousemove = handleMove; };
+    window.onmouseup = () => { window.onmousemove = null; };
 
-            // 2. Load Sound
-            const resp = await fetch('./mysound.mp3');
-            const data = await resp.arrayBuffer();
-            const buffer = await audioCtx.decodeAudioData(data);
+    // Listeners for Touch
+    sourceDiv.ontouchstart = () => { sourceDiv.ontouchmove = handleMove; };
+    sourceDiv.ontouchend = () => { sourceDiv.ontouchmove = null; };
 
-            source = audioCtx.createBufferSource();
-            source.buffer = buffer;
-            source.loop = true;
+    yAxis.oninput = updateSpatialAudio;
+    startBtn.onclick = init;
+</script>
 
-            // 3. Connect: Source -> Panner -> Speakers
-            source.connect(panner).connect(audioCtx.destination);
-            source.start();
-            
-            startBtn.style.display = 'none';
-            update3DPosition(posX, posY);
-        }
-
-        function update3DPosition(x, y) {
-            if (!panner) return;
-            // Convert screen pixels to 3D coordinates
-            // (Center of radar is 0,0)
-            const x3D = (x - 140) / 20; 
-            const z3D = (y - 140) / 20; // Z is front/back in 3D audio
-
-            panner.positionX.value = x3D;
-            panner.positionZ.value = z3D; 
-            panner.positionY.value = 0; // Keep it at ear level
-        }
-
-        // Add this to your HTML/CSS section
-// <input type="range" id="heightSlider" min="-10" max="10" step="0.1" value="0">
-
-const heightSlider = document.getElementById('heightSlider');
-
-function update3DPosition(x, z) {
-    if (!panner) return;
-
-    // 1. Horizontal Plane (from the radar drag)
-    const x3D = (x - 140) / 20; 
-    const z3D = (z - 140) / 20; 
-
-    // 2. Vertical Axis (from the slider)
-    const y3D = parseFloat(heightSlider.value);
-
-    // Apply to the Panner
-    panner.positionX.value = x3D;
-    panner.positionY.value = y3D; // THIS is the "Above/Below" magic
-    panner.positionZ.value = z3D; 
-}
-
-        // Simple Drag Logic
-        let isDragging = false;
-        sourceDiv.onmousedown = () => isDragging = true;
-        window.onmouseup = () => isDragging = false;
-        window.onmousemove = (e) => {
-            if (!isDragging) return;
-            const rect = radar.getBoundingClientRect();
-            posX = e.clientX - rect.left - 15;
-            posY = e.clientY - rect.top - 15;
-            sourceDiv.style.left = posX + 'px';
-            sourceDiv.style.top = posY + 'px';
-            update3DPosition(posX, posY);
-        };
-
-        startBtn.onclick = init3DAudio;
-    </script>
 </body>
 </html>
