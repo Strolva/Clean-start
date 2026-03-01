@@ -1,1 +1,15 @@
+// 1. Create the Panner
+const panner = audioCtx.createPanner();
 
+// 2. Configure the "3D" Model
+panner.panningModel = 'HRTF'; // The high-quality realistic mode
+panner.distanceModel = 'inverse'; // Sound gets quieter as it moves away
+
+// 3. Place the sound
+panner.positionX.value = 5; // 5 meters to the right
+panner.positionY.value = 0; 
+panner.positionZ.value = -2; // 2 meters in front
+
+// 4. Connect the chain
+source.connect(panner);
+panner.connect(audioCtx.destination);
