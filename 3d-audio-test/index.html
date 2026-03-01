@@ -22,12 +22,13 @@
             position: absolute; cursor: grab; box-shadow: 0 0 15px #ef4444;
             display: flex; align-items: center; justify-content: center; color: white; font-weight: bold;
         }
-
+  <button id="resetBtn" style="background: #64748b; margin-left: 10px;">RESET TO CENTER</button>
         /* The Height Control (Y axis) */
         .slider-wrap { width: 280px; display: flex; flex-direction: column; gap: 10px; }
         input[type=range] { width: 100%; cursor: pointer; }
         
         button { padding: 15px 30px; font-size: 1.2rem; background: #38bdf8; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; }
+      
     </style>
 </head>
 <body>
@@ -52,6 +53,28 @@
 </div>
 
 <script>
+
+    const resetBtn = document.getElementById('resetBtn');
+
+resetBtn.onclick = () => {
+    // 1. Reset the Coordinates
+    posX = 115; 
+    posY = 115; 
+    
+    // 2. Update the Visuals
+    sourceDiv.style.left = posX + 'px';
+    sourceDiv.style.top = posY + 'px';
+    yAxis.value = 0;
+
+    // 3. Update the Audio Engine
+    if (panner) {
+        panner.positionX.value = 0;
+        panner.positionY.value = 0;
+        panner.positionZ.value = 0;
+    }
+    console.log("Audio Reset to Center");
+};
+    
     let audioCtx, panner, source;
     const radar = document.getElementById('radar');
     const sourceDiv = document.getElementById('sound-source');
