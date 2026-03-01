@@ -66,6 +66,21 @@
     sourceDiv.style.top = posY + 'px';
 
     async function init() {
+
+// 1. Setup the source
+source = audioCtx.createBufferSource();
+source.buffer = buffer;
+source.loop = true;
+
+// 2. THE CROP: Set the loop points
+// Example: If your track is 30 seconds but fades out at 28 seconds:
+source.loopStart = 0; 
+source.loopEnd = buffer.duration - 2.0; // Trim 2 seconds off the end
+
+// 3. Start it
+source.connect(panner).connect(audioCtx.destination);
+source.start(0, 0); // Start at time 0
+        
         if (audioCtx) return; // Don't start twice
         audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         panner = new PannerNode(audioCtx, { panningModel: 'HRTF', distanceModel: 'inverse' });
