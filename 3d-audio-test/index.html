@@ -1,15 +1,101 @@
-// 1. Create the Panner
-const panner = audioCtx.createPanner();
+<!DOCTYPE html>
+<html>
+<head>
+    <title>3D Spatial Trainer</title>
+    <style>
+        body { background: #0f172a; color: #38bdf8; font-family: sans-serif; text-align: center; margin: 0; overflow: hidden; }
+        #radar { 
+            width: 300px; height: 300px; border: 2px solid #38bdf8; 
+            border-radius: 50%; margin: 50px auto; position: relative;
+            background: radial-gradient(circle, #1e293b 0%, #0f172a 70%);
+        }
+        #listener { 
+            width: 20px; height: 20px; background: white; border-radius: 50%;
+            position: absolute; top: 140px; left: 140px; box-shadow: 0 0 15px white;
+        }
+        #sound-source {
+            width: 30px; height: 30px; background: #ef4444; border-radius: 50%;
+            position: absolute; cursor: grab; box-shadow: 0 0 15px #ef4444;
+            display: flex; align-items: center; justify-content: center; color: white; font-size: 10px;
+        }
+    </style>
+</head>
+<body>
+    <h2>3D POSITIONAL TRAINER</h2>
+    <p>Drag the RED DOT to move the sound in 3D space</p>
+    
+    <button id="startBtn" style="padding: 10px 20px;">START AUDIO</button>
 
-// 2. Configure the "3D" Model
-panner.panningModel = 'HRTF'; // The high-quality realistic mode
-panner.distanceModel = 'inverse'; // Sound gets quieter as it moves away
+    <div id="radar">
+        <div id="listener"></div>
+        <div id="sound-source">DRAG</div>
+    </div>
 
-// 3. Place the sound
-panner.positionX.value = 5; // 5 meters to the right
-panner.positionY.value = 0; 
-panner.positionZ.value = -2; // 2 meters in front
+    <script>
+        let audioCtx, panner, source;
 
-// 4. Connect the chain
-source.connect(panner);
-panner.connect(audioCtx.destination);
+        const startBtn = document.getElementById('startBtn');
+        const sourceDiv = document.getElementById('sound-source');
+        const radar = document.getElementById('radar');
+
+        // Initial Position
+        let posX = 140, posY = 50;
+        sourceDiv.style.left = posX + 'px';
+        sourceDiv.style.top = posY + 'px';
+
+        async function init3DAudio() {
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            
+            // 1. Setup Panner
+            panner = new PannerNode(audioCtx, {
+                panningModel: 'HRTF',
+                distanceModel: 'inverse'
+            });
+
+            // 2. Load Sound
+            const resp = await fetch('./mysound.mp3');
+            const data = await resp.arrayBuffer();
+            const buffer = await audioCtx.decodeAudioData(data);
+
+            source = audioCtx.createBufferSource();
+            source.buffer = buffer;
+            source.loop = true;
+
+            // 3. Connect: Source -> Panner -> Speakers
+            source.connect(panner).connect(audioCtx.destination);
+            source.start();
+            
+            startBtn.style.display = 'none';
+            update3DPosition(posX, posY);
+        }
+
+        function update3DPosition(x, y) {
+            if (!panner) return;
+            // Convert screen pixels to 3D coordinates
+            // (Center of radar is 0,0)
+            const x3D = (x - 140) / 20; 
+            const z3D = (y - 140) / 20; // Z is front/back in 3D audio
+
+            panner.positionX.value = x3D;
+            panner.positionZ.value = z3D; 
+            panner.positionY.value = 0; // Keep it at ear level
+        }
+
+        // Simple Drag Logic
+        let isDragging = false;
+        sourceDiv.onmousedown = () => isDragging = true;
+        window.onmouseup = () => isDragging = false;
+        window.onmousemove = (e) => {
+            if (!isDragging) return;
+            const rect = radar.getBoundingClientRect();
+            posX = e.clientX - rect.left - 15;
+            posY = e.clientY - rect.top - 15;
+            sourceDiv.style.left = posX + 'px';
+            sourceDiv.style.top = posY + 'px';
+            update3DPosition(posX, posY);
+        };
+
+        startBtn.onclick = init3DAudio;
+    </script>
+</body>
+</html>
