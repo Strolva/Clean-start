@@ -81,6 +81,27 @@
             panner.positionY.value = 0; // Keep it at ear level
         }
 
+        // Add this to your HTML/CSS section
+// <input type="range" id="heightSlider" min="-10" max="10" step="0.1" value="0">
+
+const heightSlider = document.getElementById('heightSlider');
+
+function update3DPosition(x, z) {
+    if (!panner) return;
+
+    // 1. Horizontal Plane (from the radar drag)
+    const x3D = (x - 140) / 20; 
+    const z3D = (z - 140) / 20; 
+
+    // 2. Vertical Axis (from the slider)
+    const y3D = parseFloat(heightSlider.value);
+
+    // Apply to the Panner
+    panner.positionX.value = x3D;
+    panner.positionY.value = y3D; // THIS is the "Above/Below" magic
+    panner.positionZ.value = z3D; 
+}
+
         // Simple Drag Logic
         let isDragging = false;
         sourceDiv.onmousedown = () => isDragging = true;
