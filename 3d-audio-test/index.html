@@ -68,27 +68,7 @@
     async function init() {
 
         
-        if (audioCtx) return; // Don't start twice
-        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        panner = new PannerNode(audioCtx, { panningModel: 'HRTF', distanceModel: 'inverse' });
-
-        try {
-            const resp = await fetch('./mysound.mp3');
-            const buffer = await audioCtx.decodeAudioData(await resp.arrayBuffer());
-            source = audioCtx.createBufferSource();
-            source.buffer = buffer;
-            source.loop = true;
-
-            source.connect(panner).connect(audioCtx.destination);
-            source.start();
-            startBtn.innerText = "ENGINE RUNNING";
-            startBtn.style.opacity = "0.5";
-            updateSpatialAudio();
-        } catch (err) {
-            console.error("Audio failed to load:", err);
-            alert("Make sure mysound.mp3 is in the same folder!");
-
-            async function init() {
+       async function init() {
         if (audioCtx) return; // Don't start twice
         
         // 1. Initialize the Engine
@@ -124,8 +104,7 @@
             alert("Make sure mysound.mp3 is in the same folder!");
         }
     }
-        }
-    }
+  
 
     function updateSpatialAudio() {
         if (!panner) return;
