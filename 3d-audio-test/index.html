@@ -86,7 +86,7 @@
 
             // Adjust the '- 2.0' to trim silence at the end
             source.loopStart = 0; 
-            source.loopEnd = buffer.duration - 2.0; 
+            source.loopEnd = buffer.duration - 4.0; 
 
             // 4. Connect and Start
             source.connect(panner).connect(audioCtx.destination);
