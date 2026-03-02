@@ -111,6 +111,26 @@
         // We'll hook your FM Synth "Screamer" or a sample here!
         alert("Audio Engine Initializing...");
     }
+    function killAudio() {
+    if (audioCtx) {
+        // Suspending is cleaner than closing if you might restart
+        audioCtx.suspend().then(() => {
+            console.log("Audio Engine Halted.");
+            document.querySelector('.hud').innerText = "Sector: 01 | Signal: SILENCED";
+        });
+    }
+}
+
+function goHome() {
+    // Safety first: Stop the audio before leaving the page
+    if (audioCtx) {
+        audioCtx.close().then(() => {
+            window.location.href = "index.html";
+        });
+    } else {
+        window.location.href = "index.html";
+    }
+}
 </script>
 </body>
 </html>
