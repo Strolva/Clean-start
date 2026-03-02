@@ -3,7 +3,6 @@
 <head>
     <title>Bocs Sain | Radar Trainer</title>
     <style>
-        /* CSS GOES HERE */
         body { background: #121212; color: #00d2ff; font-family: monospace; text-align: center; margin: 0; overflow-x: hidden; }
         
         #master-controls {
@@ -23,7 +22,6 @@
             padding: 12px;
             border-radius: 5px;
             font-family: 'Courier New', monospace;
-            letter-spacing: 1px;
             font-weight: bold;
             cursor: pointer;
         }
@@ -33,7 +31,6 @@
 
         #radar-container { margin-top: 30px; position: relative; display: inline-block; }
 
-        /* The "Glass" of the Radar */
         canvas { 
             background: radial-gradient(circle, #1a1a1a 0%, #000 70%);
             border: 5px solid #333; 
@@ -43,7 +40,8 @@
         }
 
         .hud { margin-top: 20px; font-size: 1.2rem; text-transform: uppercase; letter-spacing: 2px; }
-        .engage-btn { background: #00d2ff; border: none; padding: 15px 30px; font-weight: bold; cursor: pointer; margin-bottom: 20px; }
+        .control-btns button { background: #00d2ff; border: none; padding: 15px 30px; font-weight: bold; cursor: pointer; margin: 5px; color: #000; }
+        .reset-btn { background: #444 !important; color: white !important; }
     </style>
 </head>
 <body>
@@ -59,51 +57,65 @@
         <canvas id="radar" width="400" height="400"></canvas>
     </div>
 
-    <div class="hud">
-        <button class="engage-btn" onclick="startAudio()">Engage Audio Engine</button>
-        <p style="font-size: 0.8rem; color: #555;">Tap the radar to move the "Blip"</p>
+    <div class="hud control-btns">
+        <button onclick="startAudio()">ENGAGE SIGNAL</button>
+        <button class="reset-btn" onclick="resetCenter()">CENTER BLIP</button>
+        <p style="font-size: 0.8rem; color: #555;">Tap radar to move blip. Y-axis controls Pitch.</p>
     </div>
-
-    <div class="hud">
-    <button class="engage-btn" onclick="startAudio()">ENGAGE SIGNAL</button>
-    <button onclick="resetCenter()" style="background: #444; color: white;">CENTER BLIP</button>
-</div>
 
 <script>
     const canvas = document.getElementById('radar');
     const ctx = canvas.getContext('2d');
-    let audioCtx, oscillator, panner; // The Audio Trinity
-    let targetX = 200, targetY = 200; 
+    
+    // AUDIO ENGINE VARIABLES
+    let audioCtx;
+    let oscillator;
+    let panner;
+    let gainNode; // To prevent clicking sounds
+    
+    let targetX = 200, targetY = 200;
 
     function draw() {
         ctx.fillStyle = "rgba(0, 0, 0, 0.2)";
         ctx.fillRect(0, 0, 400, 400);
 
-        // Draw Radar Rings & Crosshair
+        // Draw Radar Rings
         ctx.strokeStyle = "#004455";
+        ctx.lineWidth = 1;
         for(let i=1; i<=3; i++) {
-            ctx.beginPath(); ctx.arc(200, 200, i * 50, 0, Math.PI * 2); ctx.stroke();
+            ctx.beginPath();
+            ctx.arc(200, 200, i * 50, 0, Math.PI * 2);
+            ctx.stroke();
         }
-        ctx.beginPath(); ctx.moveTo(200, 0); ctx.lineTo(200, 400); ctx.moveTo(0, 200); ctx.lineTo(400, 200); ctx.stroke();
+
+        // Draw Crosshair
+        ctx.beginPath();
+        ctx.moveTo(200, 0); ctx.lineTo(200, 400);
+        ctx.moveTo(0, 200); ctx.lineTo(400, 200);
+        ctx.stroke();
 
         // Draw the Blip
         ctx.fillStyle = "#00d2ff";
-        ctx.shadowBlur = 15; ctx.shadowColor = "#00d2ff";
-        ctx.beginPath(); ctx.arc(targetX, targetY, 10, 0, Math.PI * 2); ctx.fill();
+        ctx.shadowBlur = 15;
+        ctx.shadowColor = "#00d2ff";
+        ctx.beginPath();
+        ctx.arc(targetX, targetY, 10, 0, Math.PI * 2);
+        ctx.fill();
         ctx.shadowBlur = 0;
 
         requestAnimationFrame(draw);
     }
 
-    // MAP COORDINATES TO AUDIO
-    function updateAudio() {
+    // THIS UPDATES THE SOUND BASED ON BLIP POSITION
+    function updateAudioPosition() {
         if (!audioCtx || !oscillator) return;
 
-        // 1. Calculate Pan (-1 to 1)
-        const panValue = (targetX / 200) - 1; 
+        // 1. PANNING: Left (-1) to Right (1)
+        const panValue = (targetX / 200) - 1;
         panner.pan.setTargetAtTime(panValue, audioCtx.currentTime, 0.05);
 
-        // 2. Calculate Pitch based on Y (Lower Y = Higher Pitch)
+        // 2. PITCH: Vertical position (0 is top, 400 is bottom)
+        // We invert it so higher up = higher pitch
         const freq = 600 - targetY; 
         oscillator.frequency.setTargetAtTime(freq, audioCtx.currentTime, 0.05);
     }
@@ -112,38 +124,55 @@
         const rect = canvas.getBoundingClientRect();
         targetX = e.clientX - rect.left;
         targetY = e.clientY - rect.top;
-        updateAudio();
+        updateAudioPosition();
     });
 
     function resetCenter() {
         targetX = 200;
         targetY = 200;
-        updateAudio();
+        updateAudioPosition();
     }
 
     function startAudio() {
         if (!audioCtx) {
             audioCtx = new (window.AudioContext || window.webkitAudioContext)();
             
-            // Create Oscillator (The Sound)
+            // OSCILLATOR -> PANNER -> MASTER GAIN -> SPEAKERS
             oscillator = audioCtx.createOscillator();
             oscillator.type = 'sine';
             
-            // Create Panner (The Direction)
             panner = audioCtx.createStereoPanner();
             
-            // Connect: Osc -> Panner -> Speakers
+            gainNode = audioCtx.createGain();
+            gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime); // Keep it quiet-ish
+
             oscillator.connect(panner);
-            panner.connect(audioCtx.destination);
+            panner.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
             
             oscillator.start();
         }
         audioCtx.resume();
         document.getElementById('status-display').innerText = "Sector: 01 | Signal: ONLINE";
-        updateAudio();
+        updateAudioPosition();
     }
 
-    // Kill/GoHome functions remain the same...
+    function killAudio() {
+        if (audioCtx) {
+            audioCtx.suspend().then(() => {
+                document.getElementById('status-display').innerText = "Sector: 01 | Signal: SILENCED";
+            });
+        }
+    }
+
+    function goHome() {
+        if (audioCtx) {
+            audioCtx.close().then(() => { window.location.href = "index.html"; });
+        } else {
+            window.location.href = "index.html";
+        }
+    }
+
     draw();
 </script>
 </body>
