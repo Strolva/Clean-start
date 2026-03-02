@@ -65,10 +65,8 @@
     sourceDiv.style.left = posX + 'px';
     sourceDiv.style.top = posY + 'px';
 
+    // THE CLEANED UP INIT FUNCTION
     async function init() {
-
-        
-       async function init() {
         if (audioCtx) return; // Don't start twice
         
         // 1. Initialize the Engine
@@ -86,7 +84,7 @@
             source.buffer = buffer;
             source.loop = true;
 
-            // CHANGE THIS NUMBER: Adjust '- 2.0' to trim the silence at the end of your file
+            // Adjust the '- 2.0' to trim silence at the end
             source.loopStart = 0; 
             source.loopEnd = buffer.duration - 2.0; 
 
@@ -103,8 +101,7 @@
             console.error("Audio failed to load:", err);
             alert("Make sure mysound.mp3 is in the same folder!");
         }
-    }
-  
+    } // This } closes the init function properly!
 
     function updateSpatialAudio() {
         if (!panner) return;
@@ -154,6 +151,5 @@
         }
     };
 </script>
-
 </body>
 </html>
