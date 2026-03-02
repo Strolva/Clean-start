@@ -13,6 +13,17 @@
         .hud { margin-top: 20px; font-size: 1.2rem; text-transform: uppercase; letter-spacing: 2px; }
         .control-btns button { background: #00d2ff; border: none; padding: 15px 30px; font-weight: bold; cursor: pointer; margin: 5px; color: #000; }
         .reset-btn { background: #444 !important; color: white !important; }
+        .slider-box {
+    margin: 20px auto;
+    width: 200px;
+    color: #00d2ff;
+}
+
+#depth-slider {
+    width: 100%;
+    cursor: pointer;
+    accent-color: #00d2ff; /* Makes the slider blue */
+}
     </style>
 </head>
 <body>
@@ -33,6 +44,12 @@
         <button class="reset-btn" onclick="resetCenter()">CENTER BLIP</button>
         <p style="font-size: 0.8rem; color: #555;">Y-axis: Up is Bright/High, Down is Muffled/Deep.</p>
     </div>
+
+<div class="slider-box">
+    <label>HEIGHT / DEPTH</label><br>
+    <input type="range" id="depth-slider" min="200" max="5000" value="2000" step="1">
+</div>
+    
 
 <script>
     const canvas = document.getElementById('radar');
@@ -56,20 +73,20 @@
 
     // 3. THE AUDIO UPDATE (The "Tap" - changes values of existing nodes)
     function updateAudioPosition() {
-        if (!audioCtx || !oscillator || !filter) return;
+    if (!audioCtx || !oscillator || !filter) return;
 
-        // PANNING (X)
-        const panValue = (targetX / 200) - 1;
-        panner.pan.setTargetAtTime(panValue, audioCtx.currentTime, 0.05);
+    // 1. PANNING (X-axis of Radar ONLY)
+    const panValue = (targetX / 200) - 1;
+    panner.pan.setTargetAtTime(panValue, audioCtx.currentTime, 0.05);
 
-        // PITCH (Y)
-        const freq = 600 - targetY; 
-        oscillator.frequency.setTargetAtTime(freq, audioCtx.currentTime, 0.05);
+    // 2. PITCH (Y-axis of Radar - keep it if you like, or lock it)
+    const freq = 600 - targetY; 
+    oscillator.frequency.setTargetAtTime(freq, audioCtx.currentTime, 0.05);
 
-        // DEPTH/FILTER (Y)
-        const cutoff = 2000 - (targetY * 4.5); 
-        filter.frequency.setTargetAtTime(Math.max(cutoff, 200), audioCtx.currentTime, 0.05);
-    }
+    // 3. DEPTH (Controlled by the SLIDER now)
+    const sliderValue = document.getElementById('depth-slider').value;
+    filter.frequency.setTargetAtTime(sliderValue, audioCtx.currentTime, 0.05);
+}
 
     // 4. THE POWER SWITCH (The "Plumbing" - creates nodes once)
     function startAudio() {
@@ -128,6 +145,9 @@
     function goHome() { if (audioCtx) { audioCtx.close().then(() => { window.location.href = "index.html"; }); } else { window.location.href = "index.html"; } }
 
     draw();
+
+document.getElementById('depth-slider').addEventListener('input', updateAudioPosition);
+    
 </script>
 </body>
 </html>
