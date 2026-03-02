@@ -75,7 +75,7 @@
 
         try {
             // 2. Load and Decode the File
-            const resp = await fetch('./mysound.wav');
+            const resp = await fetch('./mysound.mp3');
             const arrayBuffer = await resp.arrayBuffer();
             const buffer = await audioCtx.decodeAudioData(arrayBuffer);
 
