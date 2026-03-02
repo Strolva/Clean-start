@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Bocs Sain | Radar Trainer</title>
+    <title>Bocs Sain | 3D Orbit Radar</title>
     <style>
         body { background: #121212; color: #00d2ff; font-family: monospace; text-align: center; margin: 0; overflow-x: hidden; }
         #master-controls { display: flex; justify-content: space-around; padding: 10px; background: #1a1a1a; border-bottom: 2px solid #333; position: sticky; top: 0; z-index: 100; }
@@ -12,27 +12,34 @@
         #radar-container { margin-top: 20px; position: relative; display: inline-block; }
         canvas { background: radial-gradient(circle, #1a1a1a 0%, #000 70%); border: 5px solid #333; border-radius: 50%; box-shadow: 0 0 20px rgba(0, 210, 255, 0.2); cursor: crosshair; }
 
-        .slider-box { margin: 20px auto; width: 300px; color: #00d2ff; font-weight: bold; }
-        #depth-slider { width: 100%; height: 25px; cursor: pointer; accent-color: #00d2ff; }
+        .slider-box { margin: 15px auto; width: 300px; color: #00d2ff; font-weight: bold; background: #1a1a1a; padding: 15px; border-radius: 10px; border: 1px solid #333; }
+        input[type="range"] { width: 100%; height: 20px; cursor: pointer; accent-color: #00d2ff; }
 
         .hud { margin-top: 10px; font-size: 1.2rem; text-transform: uppercase; letter-spacing: 2px; }
-        .control-btns button { background: #00d2ff; border: none; padding: 15px 30px; font-weight: bold; cursor: pointer; margin: 5px; color: #000; }
+        .control-btns button { background: #00d2ff; border: none; padding: 15px 25px; font-weight: bold; cursor: pointer; margin: 5px; color: #000; border-radius: 4px; }
         .reset-btn { background: #444 !important; color: white !important; }
-        .load-btn { background: #00ff88 !important; }
+        .auto-btn { transition: 0.3s; }
     </style>
 </head>
 <body>
 
     <div id="master-controls">
-        <button id="stop-btn" onclick="killAudio()">STOP ALL</button>
+        <button id="stop-btn" onclick="killAudio()">SILENCE ALL</button>
         <button id="exit-btn" onclick="goHome()">BACK TO HUB</button>
     </div>
 
-    <div class="hud" id="status-display">Sector: 01 | Signal: Ready</div>
+    <div class="hud" id="status-display">Signal: Standby</div>
 
-    <div class="slider-box">
-        <label>HEIGHT / DEPTH (TONE)</label><br>
-        <input type="range" id="depth-slider" min="0" max="1" step="0.01" value="0.5">
+    <div style="display: flex; justify-content: center; flex-wrap: wrap;">
+        <div class="slider-box">
+            <label>MANUAL DEPTH (TONE)</label><br>
+            <input type="range" id="depth-slider" min="0" max="1" step="0.01" value="0.7">
+        </div>
+        <div class="slider-box">
+            <label>ORBIT SPEED</label><br>
+            <input type="range" id="pan-speed" min="0" max="5" step="0.1" value="1">
+            <button id="auto-btn" class="auto-btn" onclick="toggleAutopan()" style="margin-top:10px; width: 100%; padding: 8px;">AUTOPAN: OFF</button>
+        </div>
     </div>
     
     <div id="radar-container">
@@ -40,61 +47,87 @@
     </div>
 
     <div class="hud control-btns">
-        <button onclick="startOscillator()">TEST BEEP</button>
-        <button class="load-btn" onclick="document.getElementById('audio-file').click()">LOAD SAMPLE</button>
+        <button onclick="startOscillator()">START BEEP</button>
+        <button style="background: #00ff88;" onclick="document.getElementById('audio-file').click()">LOAD SAMPLE</button>
         <button class="reset-btn" onclick="resetCenter()">CENTER</button>
         <input type="file" id="audio-file" accept="audio/*" style="display:none">
     </div>
-
-    <div class="slider-box">
-    <label>AUTOPAN SPEED</label><br>
-    <input type="range" id="pan-speed" min="0" max="5" step="0.1" value="1">
-    <br><br>
-    <button id="auto-btn" onclick="toggleAutopan()" style="background: #444; color: #00d2ff; border: 1px solid #00d2ff;">AUTOPAN: OFF</button>
-</div>
 
 <script>
     const canvas = document.getElementById('radar');
     const ctx = canvas.getContext('2d');
     
-    // THE PLUMBING FIX: Global variables so everyone can talk to each other
     let audioCtx, oscillator, panner, gainNode, filter, sampleSource;
     let targetX = 200, targetY = 200;
+    let autopanActive = false;
+    let panAngle = 0;
 
-    // VISUALS
     function draw() {
-        ctx.fillStyle = "rgba(0, 0, 0, 0.2)";
+        // AUTOPAN LOGIC (The "Heartbeat")
+        if (autopanActive) {
+            const speed = document.getElementById('pan-speed').value;
+            panAngle += (parseFloat(speed) * 0.015); // Adjust for orbit smoothness
+            
+            // Orbit in a circle around the center (200, 200)
+            targetX = 200 + (Math.sin(panAngle) * 160);
+            targetY = 200 + (Math.cos(panAngle) * 160);
+            
+            updateAudioPosition();
+        }
+
+        // VISUALS
+        ctx.fillStyle = "rgba(0, 0, 0, 0.25)";
         ctx.fillRect(0, 0, 400, 400);
+        
+        // Radar Rings
         ctx.strokeStyle = "#004455";
+        ctx.lineWidth = 1;
         for(let i=1; i<=3; i++) { ctx.beginPath(); ctx.arc(200, 200, i * 50, 0, Math.PI * 2); ctx.stroke(); }
+        
+        // Crosshairs
         ctx.beginPath(); ctx.moveTo(200, 0); ctx.lineTo(200, 400); ctx.moveTo(0, 200); ctx.lineTo(400, 200); ctx.stroke();
+        
+        // The Blip (Glowing)
         ctx.fillStyle = "#00d2ff";
-        ctx.beginPath(); ctx.arc(targetX, targetY, 10, 0, Math.PI * 2); ctx.fill();
+        ctx.shadowBlur = 15; ctx.shadowColor = "#00d2ff";
+        ctx.beginPath(); ctx.arc(targetX, targetY, 12, 0, Math.PI * 2); ctx.fill();
+        ctx.shadowBlur = 0;
+
         requestAnimationFrame(draw);
     }
 
-    // THE LOGARITHMIC TRANSLATOR
     function updateAudioPosition() {
-        if (!audioCtx || !filter) return;
+        if (!audioCtx || !filter || !panner || !gainNode) return;
 
-        // 1. PAN (X)
+        // 1. PANNING (Left/Right)
         const panValue = (targetX / 200) - 1;
         panner.pan.setTargetAtTime(panValue, audioCtx.currentTime, 0.05);
 
-        // 2. PITCH (Y) - Only affects the beep, not your samples
-        if (oscillator) {
-            const freq = 600 - targetY; 
-            oscillator.frequency.setTargetAtTime(freq, audioCtx.currentTime, 0.05);
+        // 2. THE 360 "CHEAT" (Psychoacoustics)
+        // If Y is > 200, it's "behind" us.
+        const isBehind = targetY > 200;
+        const depthSlider = document.getElementById('depth-slider').value;
+        
+        // Calculate frequency based on slider + behind/front position
+        let baseFreq = 200 * Math.pow(10000 / 200, depthSlider);
+        
+        if (isBehind) {
+            // Muffle more and drop volume when behind
+            filter.frequency.setTargetAtTime(baseFreq * 0.4, audioCtx.currentTime, 0.1);
+            gainNode.gain.setTargetAtTime(0.06, audioCtx.currentTime, 0.1);
+        } else {
+            // Bright and clear when in front
+            filter.frequency.setTargetAtTime(baseFreq, audioCtx.currentTime, 0.1);
+            gainNode.gain.setTargetAtTime(0.12, audioCtx.currentTime, 0.1);
         }
 
-        // 3. DEPTH SLIDER (Logarithmic Fix)
-        const sliderVal = document.getElementById('depth-slider').value;
-        // This math spreads the "usable" sound across the whole slider
-        const frequency = 200 * Math.pow(10000 / 200, sliderVal); 
-        filter.frequency.setTargetAtTime(frequency, audioCtx.currentTime, 0.05);
+        // 3. OSCILLATOR PITCH (Only if beep is active)
+        if (oscillator) {
+            const pitch = 600 - targetY;
+            oscillator.frequency.setTargetAtTime(pitch, audioCtx.currentTime, 0.05);
+        }
     }
 
-    // INITIALIZE THE PIPES
     function initAudio() {
         if (!audioCtx) {
             audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -102,9 +135,7 @@
             filter.type = "lowpass";
             panner = audioCtx.createStereoPanner();
             gainNode = audioCtx.createGain();
-            gainNode.gain.setValueAtTime(0.2, audioCtx.currentTime);
-
-            // THE MAIN CHAIN: (Source) -> Filter -> Panner -> Gain -> Out
+            
             filter.connect(panner);
             panner.connect(gainNode);
             gainNode.connect(audioCtx.destination);
@@ -112,21 +143,19 @@
         audioCtx.resume();
     }
 
-    // BUTTON 1: THE BEEP
     function startOscillator() {
         initAudio();
         if (oscillator) oscillator.stop();
         if (sampleSource) { sampleSource.stop(); sampleSource = null; }
         
         oscillator = audioCtx.createOscillator();
-        oscillator.type = 'sine';
-        oscillator.connect(filter); // Connect to the start of the chain
+        oscillator.type = 'triangle'; // Softer on the brain
+        oscillator.connect(filter);
         oscillator.start();
-        document.getElementById('status-display').innerText = "Signal: OSCILLATOR";
+        document.getElementById('status-display').innerText = "Signal: OSCILLATOR (TRI)";
         updateAudioPosition();
     }
 
-    // BUTTON 2: THE FILE LOADER
     document.getElementById('audio-file').onchange = function(e) {
         initAudio();
         const reader = new FileReader();
@@ -138,42 +167,25 @@
                 sampleSource = audioCtx.createBufferSource();
                 sampleSource.buffer = buffer;
                 sampleSource.loop = true;
-                sampleSource.connect(filter); // Connect to the same chain
+                sampleSource.connect(filter);
                 sampleSource.start();
                 
-                document.getElementById('status-display').innerText = "Signal: SAMPLE LOADED";
+                document.getElementById('status-display').innerText = "Signal: SAMPLE ACTIVE";
                 updateAudioPosition();
             });
         };
         reader.readAsArrayBuffer(this.files[0]);
     };
 
-    // CONTROLS
-    document.getElementById('depth-slider').addEventListener('input', updateAudioPosition);
+    function toggleAutopan() {
+        autopanActive = !autopanActive;
+        const btn = document.getElementById('auto-btn');
+        btn.innerText = autopanActive ? "AUTOPAN: ON" : "AUTOPAN: OFF";
+        btn.style.background = autopanActive ? "#00ff88" : "#444";
+        btn.style.color = autopanActive ? "#000" : "#00d2ff";
+    }
 
-    canvas.addEventListener('mousedown', (e) => {
-        const rect = canvas.getBoundingClientRect();
-        targetX = e.clientX - rect.left; targetY = e.clientY - rect.top;
-        updateAudioPosition();
-    });
-
-    canvas.addEventListener('touchstart', (e) => {
-        e.preventDefault();
-        const rect = canvas.getBoundingClientRect();
-        const touch = e.touches[0];
-        targetX = touch.clientX - rect.left; targetY = touch.clientY - rect.top;
-        updateAudioPosition();
-    }, { passive: false });
-
-    canvas.addEventListener('touchmove', (e) => {
-        e.preventDefault();
-        const rect = canvas.getBoundingClientRect();
-        const touch = e.touches[0];
-        targetX = touch.clientX - rect.left; targetY = touch.clientY - rect.top;
-        updateAudioPosition();
-    }, { passive: false });
-
-    function resetCenter() { targetX = 200; targetY = 200; updateAudioPosition(); }
+    function resetCenter() { autopanActive = false; targetX = 200; targetY = 200; updateAudioPosition(); }
     
     function killAudio() { 
         if (audioCtx) audioCtx.suspend(); 
@@ -185,81 +197,34 @@
         else { window.location.href = "index.html"; } 
     }
 
-    let autopanActive = false;
-let panAngle = 0; // This tracks the "orbit" position
+    // SLIDER LISTENER
+    document.getElementById('depth-slider').addEventListener('input', updateAudioPosition);
 
-// 1. Change the oscillator type in startOscillator()
-function startOscillator() {
-    initAudio();
-    // ... existing stop code ...
-    oscillator = audioCtx.createOscillator();
-    oscillator.type = 'triangle'; // MUCH softer on the ears than 'sine'
-    oscillator.connect(filter);
-    oscillator.start();
-}
+    // MOUSE & TOUCH
+    canvas.addEventListener('mousedown', (e) => {
+        if (autopanActive) return;
+        const rect = canvas.getBoundingClientRect();
+        targetX = e.clientX - rect.left; targetY = e.clientY - rect.top;
+        updateAudioPosition();
+    });
 
-// 2. The Autopan Logic (Inside the draw loop or its own function)
-function updateAutopan() {
-    if (!autopanActive) return;
+    canvas.addEventListener('touchstart', (e) => {
+        if (autopanActive) return;
+        e.preventDefault();
+        const rect = canvas.getBoundingClientRect();
+        const touch = e.touches[0];
+        targetX = touch.clientX - rect.left; targetY = touch.clientY - rect.top;
+        updateAudioPosition();
+    }, { passive: false });
 
-    const speed = document.getElementById('pan-speed').value;
-    panAngle += (parseFloat(speed) * 0.02);
-    
-    // 1. CIRCULAR COORDINATES
-    // This moves the dot in a circle on the radar screen
-    targetX = 200 + (Math.sin(panAngle) * 150);
-    targetY = 200 + (Math.cos(panAngle) * 150);
-    
-    // 2. APPLY THE "360 CHEAT"
-    if (audioCtx && filter && gainNode) {
-        // Is the dot in the "back" half of the radar? (Bottom half)
-        const isBehind = targetY > 200;
-        
-        if (isBehind) {
-            // Muffle it and quiet it down to simulate "Behind"
-            filter.frequency.setTargetAtTime(800, audioCtx.currentTime, 0.1);
-            gainNode.gain.setTargetAtTime(0.05, audioCtx.currentTime, 0.1);
-        } else {
-            // Bring it to the front (Clear and Louder)
-            filter.frequency.setTargetAtTime(3000, audioCtx.currentTime, 0.1);
-            gainNode.gain.setTargetAtTime(0.15, audioCtx.currentTime, 0.1);
-        }
-    }
-    
-    updateAudioPosition();
-}
-
-// 3. Update the draw() function to include the autopan call
-function draw() {
-    // 1. If Autopan is ON, change the coordinates before drawing
-    if (autopanActive) {
-        const speed = document.getElementById('pan-speed').value;
-        panAngle += (parseFloat(speed) * 0.02);
-        
-        targetX = 200 + (Math.sin(panAngle) * 150);
-        targetY = 200 + (Math.cos(panAngle) * 150);
-        
-        // Tell the ears that the eyes moved the dot
-        updateAudioPosition(); 
-    }
-
-    // 2. Clear the screen (The "Ghosting" effect)
-    ctx.fillStyle = "rgba(0, 0, 0, 0.2)";
-    ctx.fillRect(0, 0, 400, 400);
-
-    // 3. Redraw the radar rings and the dot
-    // ... (Your existing ring and arc code) ...
-
-    requestAnimationFrame(draw);
-}
-
-function toggleAutopan() {
-    autopanActive = !autopanActive;
-    const btn = document.getElementById('auto-btn');
-    btn.innerText = autopanActive ? "AUTOPAN: ON" : "AUTOPAN: OFF";
-    btn.style.background = autopanActive ? "#00d2ff" : "#444";
-    btn.style.color = autopanActive ? "#000" : "#00d2ff";
-}
+    canvas.addEventListener('touchmove', (e) => {
+        if (autopanActive) return;
+        e.preventDefault();
+        const rect = canvas.getBoundingClientRect();
+        const touch = e.touches[0];
+        targetX = touch.clientX - rect.left; targetY = touch.clientY - rect.top;
+        updateAudioPosition();
+    }, { passive: false });
 
     draw();
 </script>
