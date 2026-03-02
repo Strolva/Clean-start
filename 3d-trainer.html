@@ -53,6 +53,8 @@
         <input type="file" id="audio-file" accept="audio/*" style="display:none">
     </div>
 
+    <button id="dir-btn" onclick="toggleDirection()" style="margin-top:5px; width: 100%; padding: 8px; background: #333; color: #00d2ff; border: 1px solid #555;">DIRECTION: CW</button>
+
 <script>
     const canvas = document.getElementById('radar');
     const ctx = canvas.getContext('2d');
@@ -61,12 +63,14 @@
     let targetX = 200, targetY = 200;
     let autopanActive = false;
     let panAngle = 0;
-
+    let orbitDirection = 1; // 1 for Clockwise, -1 for Anticlockwise
+    
     function draw() {
         // AUTOPAN LOGIC (The "Heartbeat")
         if (autopanActive) {
             const speed = document.getElementById('pan-speed').value;
-            panAngle += (parseFloat(speed) * 0.015); // Adjust for orbit smoothness
+            // Add orbitDirection here to flip the spin
+        panAngle += (parseFloat(speed) * 0.015) * orbitDirection; // Adjust for orbit smoothness
             
             // Orbit in a circle around the center (200, 200)
             targetX = 200 + (Math.sin(panAngle) * 160);
@@ -97,37 +101,32 @@
     }
 
     function updateAudioPosition() {
-        if (!audioCtx || !filter || !panner || !gainNode) return;
+    if (!audioCtx || !filter || !panner || !gainNode) return;
 
-        // 1. PANNING (Left/Right)
-        const panValue = (targetX / 200) - 1;
-        panner.pan.setTargetAtTime(panValue, audioCtx.currentTime, 0.05);
+    // 1. PANNING
+    const panValue = (targetX / 200) - 1;
+    panner.pan.setTargetAtTime(panValue, audioCtx.currentTime, 0.05);
 
-        // 2. THE 360 "CHEAT" (Psychoacoustics)
-        // If Y is > 200, it's "behind" us.
-        const isBehind = targetY > 200;
-        const depthSlider = document.getElementById('depth-slider').value;
-        
-        // Calculate frequency based on slider + behind/front position
-        let baseFreq = 200 * Math.pow(10000 / 200, depthSlider);
-        
-        if (isBehind) {
-            // Muffle more and drop volume when behind
-            filter.frequency.setTargetAtTime(baseFreq * 0.4, audioCtx.currentTime, 0.1);
-            gainNode.gain.setTargetAtTime(0.06, audioCtx.currentTime, 0.1);
-        } else {
-            // Bright and clear when in front
-            filter.frequency.setTargetAtTime(baseFreq, audioCtx.currentTime, 0.1);
-            gainNode.gain.setTargetAtTime(0.12, audioCtx.currentTime, 0.1);
-        }
+    // 2. THE SMOOTH 360 GRADIENT (No more "clicks" or "shifts")
+    // We map the Y position (0-400) to a multiplier (1.0 to 0.4)
+    // 0 is front (bright), 400 is back (muffled)
+    const yPercent = targetY / 400; 
+    const muffleMultiplier = 1.0 - (yPercent * 0.6); // Slopes down to 0.4
+    const volumeMultiplier = 1.0 - (yPercent * 0.5); // Slopes down to 0.5
+    
+    const depthSlider = document.getElementById('depth-slider').value;
+    let baseFreq = 200 * Math.pow(10000 / 200, depthSlider);
+    
+    // Apply smooth changes
+    filter.frequency.setTargetAtTime(baseFreq * muffleMultiplier, audioCtx.currentTime, 0.1);
+    gainNode.gain.setTargetAtTime(0.15 * volumeMultiplier, audioCtx.currentTime, 0.1);
 
-        // 3. OSCILLATOR PITCH (Only if beep is active)
-        if (oscillator) {
-            const pitch = 600 - targetY;
-            oscillator.frequency.setTargetAtTime(pitch, audioCtx.currentTime, 0.05);
-        }
+    // 3. OSCILLATOR PITCH
+    if (oscillator) {
+        const pitch = 600 - targetY;
+        oscillator.frequency.setTargetAtTime(pitch, audioCtx.currentTime, 0.05);
     }
-
+}
     function initAudio() {
         if (!audioCtx) {
             audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -227,6 +226,12 @@
     }, { passive: false });
 
     draw();
+
+    function toggleDirection() {
+    orbitDirection *= -1;
+    const btn = document.getElementById('dir-btn');
+    btn.innerText = orbitDirection === 1 ? "DIRECTION: CW" : "DIRECTION: ACW";
+}
 </script>
 </body>
 </html>
