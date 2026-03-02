@@ -3,36 +3,36 @@
 <head>
     <title>Bocs Sain | Radar Trainer</title>
     <style>
-        body { background: #121212; color: #00d2ff; font-family: monospace; text-align: center; overflow: hidden; }
-        #radar-container { margin-top: 50px; position: relative; display: inline-block; }
-
-        <div id="master-controls">
-    <button id="stop-btn" onclick="killAudio()" style="background: #ff4b2b;">STOP AUDIO</button>
-    <button id="exit-btn" onclick="goHome()">BACK TO HUB</button>
-</div>
-
-<style>
-    #master-controls {
-        display: flex;
-        justify-content: space-around;
-        padding: 10px;
-        background: #1a1a1a;
-        border-bottom: 2px solid #333;
-        position: sticky;
-        top: 0;
-        z-index: 100;
-    }
-    #master-controls button {
-        flex: 1;
-        margin: 5px;
-        padding: 12px;
-        border-radius: 5px;
-        font-family: 'Courier New', monospace;
-        letter-spacing: 1px;
-    }
-    #exit-btn { background: #444; color: white; border: 1px solid #666; }
-</style>
+        /* CSS GOES HERE */
+        body { background: #121212; color: #00d2ff; font-family: monospace; text-align: center; margin: 0; overflow-x: hidden; }
         
+        #master-controls {
+            display: flex;
+            justify-content: space-around;
+            padding: 10px;
+            background: #1a1a1a;
+            border-bottom: 2px solid #333;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        
+        #master-controls button {
+            flex: 1;
+            margin: 5px;
+            padding: 12px;
+            border-radius: 5px;
+            font-family: 'Courier New', monospace;
+            letter-spacing: 1px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        #stop-btn { background: #ff4b2b; border: none; color: white; }
+        #exit-btn { background: #444; color: white; border: 1px solid #666; }
+
+        #radar-container { margin-top: 30px; position: relative; display: inline-block; }
+
         /* The "Glass" of the Radar */
         canvas { 
             background: radial-gradient(circle, #1a1a1a 0%, #000 70%);
@@ -43,34 +43,38 @@
         }
 
         .hud { margin-top: 20px; font-size: 1.2rem; text-transform: uppercase; letter-spacing: 2px; }
-        button { background: #00d2ff; border: none; padding: 15px 30px; font-weight: bold; cursor: pointer; margin-bottom: 20px; }
+        .engage-btn { background: #00d2ff; border: none; padding: 15px 30px; font-weight: bold; cursor: pointer; margin-bottom: 20px; }
     </style>
 </head>
 <body>
 
-    <div class="hud">Sector: 01 | Signal: Active</div>
+    <div id="master-controls">
+        <button id="stop-btn" onclick="killAudio()">STOP AUDIO</button>
+        <button id="exit-btn" onclick="goHome()">BACK TO HUB</button>
+    </div>
+
+    <div class="hud" id="status-display">Sector: 01 | Signal: Active</div>
     
     <div id="radar-container">
         <canvas id="radar" width="400" height="400"></canvas>
     </div>
 
     <div class="hud">
-        <button onclick="startAudio()">Engage Audio Engine</button>
-        <p>Tap the radar to move the "Blip"</p>
-        <a href="index.html" style="color: #666; display: block; margin-top: 20px;">[ Back to Hub ]</a>
+        <button class="engage-btn" onclick="startAudio()">Engage Audio Engine</button>
+        <p style="font-size: 0.8rem; color: #555;">Tap the radar to move the "Blip"</p>
     </div>
 
 <script>
+    /* JAVASCRIPT LIVES HERE */
     const canvas = document.getElementById('radar');
     const ctx = canvas.getContext('2d');
-    let targetX = 200, targetY = 100; // Starting position of the "Blip"
+    let audioCtx; // Define this globally
+    let targetX = 200, targetY = 100;
 
     function draw() {
-        // 1. Clear with a "Fade" effect (creates trails)
         ctx.fillStyle = "rgba(0, 0, 0, 0.2)";
         ctx.fillRect(0, 0, 400, 400);
 
-        // 2. Draw Grid Rings
         ctx.strokeStyle = "#004455";
         ctx.lineWidth = 1;
         for(let i=1; i<=3; i++) {
@@ -79,58 +83,53 @@
             ctx.stroke();
         }
 
-        // 3. Draw the Crosshair
         ctx.beginPath();
         ctx.moveTo(200, 50); ctx.lineTo(200, 350);
         ctx.moveTo(50, 200); ctx.lineTo(350, 200);
         ctx.stroke();
 
-        // 4. Draw the Blip (The Sound Source)
         ctx.fillStyle = "#00d2ff";
         ctx.shadowBlur = 15;
         ctx.shadowColor = "#00d2ff";
         ctx.beginPath();
         ctx.arc(targetX, targetY, 8, 0, Math.PI * 2);
         ctx.fill();
-        ctx.shadowBlur = 0; // Reset shadow for next draw
+        ctx.shadowBlur = 0;
 
         requestAnimationFrame(draw);
     }
 
-    // Move the blip when you tap/click
     canvas.addEventListener('mousedown', (e) => {
         const rect = canvas.getBoundingClientRect();
         targetX = e.clientX - rect.left;
         targetY = e.clientY - rect.top;
-        updateAudioPosition(); // This will eventually talk to the 3D panner
     });
 
     draw();
 
     function startAudio() {
-        // We'll hook your FM Synth "Screamer" or a sample here!
-        alert("Audio Engine Initializing...");
+        if (!audioCtx) {
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        }
+        audioCtx.resume();
+        document.getElementById('status-display').innerText = "Sector: 01 | Signal: ONLINE";
     }
-    function killAudio() {
-    if (audioCtx) {
-        // Suspending is cleaner than closing if you might restart
-        audioCtx.suspend().then(() => {
-            console.log("Audio Engine Halted.");
-            document.querySelector('.hud').innerText = "Sector: 01 | Signal: SILENCED";
-        });
-    }
-}
 
-function goHome() {
-    // Safety first: Stop the audio before leaving the page
-    if (audioCtx) {
-        audioCtx.close().then(() => {
-            window.location.href = "index.html";
-        });
-    } else {
-        window.location.href = "index.html";
+    function killAudio() {
+        if (audioCtx) {
+            audioCtx.suspend().then(() => {
+                document.getElementById('status-display').innerText = "Sector: 01 | Signal: SILENCED";
+            });
+        }
     }
-}
+
+    function goHome() {
+        if (audioCtx) {
+            audioCtx.close().then(() => { window.location.href = "index.html"; });
+        } else {
+            window.location.href = "index.html";
+        }
+    }
 </script>
 </body>
 </html>
