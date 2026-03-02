@@ -203,20 +203,53 @@ function updateAutopan() {
     if (!autopanActive) return;
 
     const speed = document.getElementById('pan-speed').value;
-    // Math.sin creates a smooth back-and-forth motion
     panAngle += (parseFloat(speed) * 0.02);
     
-    // Move targetX back and forth between 0 and 400
-    targetX = 200 + (Math.sin(panAngle) * 200);
+    // 1. CIRCULAR COORDINATES
+    // This moves the dot in a circle on the radar screen
+    targetX = 200 + (Math.sin(panAngle) * 150);
+    targetY = 200 + (Math.cos(panAngle) * 150);
+    
+    // 2. APPLY THE "360 CHEAT"
+    if (audioCtx && filter && gainNode) {
+        // Is the dot in the "back" half of the radar? (Bottom half)
+        const isBehind = targetY > 200;
+        
+        if (isBehind) {
+            // Muffle it and quiet it down to simulate "Behind"
+            filter.frequency.setTargetAtTime(800, audioCtx.currentTime, 0.1);
+            gainNode.gain.setTargetAtTime(0.05, audioCtx.currentTime, 0.1);
+        } else {
+            // Bring it to the front (Clear and Louder)
+            filter.frequency.setTargetAtTime(3000, audioCtx.currentTime, 0.1);
+            gainNode.gain.setTargetAtTime(0.15, audioCtx.currentTime, 0.1);
+        }
+    }
     
     updateAudioPosition();
 }
 
 // 3. Update the draw() function to include the autopan call
 function draw() {
-    updateAutopan(); // This keeps the dot moving
-    
-    // ... all your existing canvas drawing code ...
+    // 1. If Autopan is ON, change the coordinates before drawing
+    if (autopanActive) {
+        const speed = document.getElementById('pan-speed').value;
+        panAngle += (parseFloat(speed) * 0.02);
+        
+        targetX = 200 + (Math.sin(panAngle) * 150);
+        targetY = 200 + (Math.cos(panAngle) * 150);
+        
+        // Tell the ears that the eyes moved the dot
+        updateAudioPosition(); 
+    }
+
+    // 2. Clear the screen (The "Ghosting" effect)
+    ctx.fillStyle = "rgba(0, 0, 0, 0.2)";
+    ctx.fillRect(0, 0, 400, 400);
+
+    // 3. Redraw the radar rings and the dot
+    // ... (Your existing ring and arc code) ...
+
     requestAnimationFrame(draw);
 }
 
