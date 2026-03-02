@@ -43,6 +43,16 @@
         <button onclick="startAudio()">ENGAGE SIGNAL</button>
         <button class="reset-btn" onclick="resetCenter()">CENTER BLIP</button>
     </div>
+    <div class="slider-box">
+    <label>DEPTH (LOGARITHMIC)</label><br>
+    <input type="range" id="depth-slider" min="0" max="1" step="0.01" value="0.5">
+</div>
+
+<div class="hud">
+    <button onclick="startAudio()">ENGAGE SIGNAL</button>
+    <input type="file" id="audio-file" accept="audio/*" style="display:none">
+    <button onclick="document.getElementById('audio-file').click()" style="background:#555">LOAD SAMPLE</button>
+</div>
 
 <script>
     const canvas = document.getElementById('radar');
@@ -62,21 +72,43 @@
         requestAnimationFrame(draw);
     }
 
-    function updateAudioPosition() {
-        if (!audioCtx || !oscillator || !filter) return;
+   let sampleSource; // New global for your file
 
-        // 1. PANNING (Radar X)
-        const panValue = (targetX / 200) - 1;
-        panner.pan.setTargetAtTime(panValue, audioCtx.currentTime, 0.05);
+// THE FIX FOR THE SLIDER: Logarithmic scaling
+function updateAudioPosition() {
+    if (!audioCtx || !filter) return;
 
-        // 2. PITCH (Radar Y)
-        const freq = 600 - targetY; 
-        oscillator.frequency.setTargetAtTime(freq, audioCtx.currentTime, 0.05);
+    // 1. PANNING (Radar X)
+    const panValue = (targetX / 200) - 1;
+    panner.pan.setTargetAtTime(panValue, audioCtx.currentTime, 0.05);
 
-        // 3. DEPTH (Slider Value)
-        const sliderVal = document.getElementById('depth-slider').value;
-        filter.frequency.setTargetAtTime(sliderVal, audioCtx.currentTime, 0.05);
-    }
+    // 2. DEPTH FIX: 
+    // We take the 0-1 slider and turn it into a curve (200Hz to 10000Hz)
+    const sliderVal = document.getElementById('depth-slider').value;
+    const frequency = 200 * Math.pow(10000 / 200, sliderVal); 
+    filter.frequency.setTargetAtTime(frequency, audioCtx.currentTime, 0.05);
+}
+
+// THE FILE LOADER LOGIC
+document.getElementById('audio-file').onchange = function(e) {
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        audioCtx.decodeAudioData(e.target.result, (buffer) => {
+            // Stop the oscillator if it's running
+            if (oscillator) oscillator.stop();
+            
+            // Create a buffer source for your sample
+            sampleSource = audioCtx.createBufferSource();
+            sampleSource.buffer = buffer;
+            sampleSource.loop = true;
+            
+            // Connect to the existing filter/pan chain
+            sampleSource.connect(filter);
+            sampleSource.start();
+        });
+    };
+    reader.readAsArrayBuffer(this.files[0]);
+};
 
     function startAudio() {
         if (!audioCtx) {
