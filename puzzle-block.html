@@ -166,9 +166,7 @@
             try {
                 mainBuffer = await audioCtx.decodeAudioData(arrayBuffer);
                 
-                // Hide inputs, show playback controls
-                document.getElementById('uploadLabel').style.display = 'none';
-                document.getElementById('recordBtn').style.display = 'none';
+                // Show playback controls (Input controls now persist!)
                 document.getElementById('refBtn').style.display = 'inline-block';
                 document.getElementById('stopBtn').style.display = 'inline-block';
                 
