@@ -17,7 +17,7 @@
             width: 100%; max-width: 400px; display: flex; justify-content: space-between; 
             align-items: center; margin-bottom: 20px;
         }
-        #homeBtn { background: #334155; color: #fff; padding: 10px 15px; font-size: 0.9rem; }
+        #homeBtn { background: #334155; color: #fff; padding: 10px 15px; font-size: 0.9rem; border: none; border-radius: 8px; font-weight: bold; cursor: pointer;}
         
         #grid-controls { display: flex; align-items: center; gap: 10px; background: #1e293b; padding: 5px; border-radius: 8px;}
         .stepper-btn { background: #334155; color: white; border: none; border-radius: 6px; padding: 8px 12px; font-size: 1rem; cursor: pointer; touch-action: manipulation; }
@@ -25,14 +25,27 @@
         #grid-size-label { font-weight: bold; width: 40px; text-align: center; color: #fff; }
 
         /* AUDIO CONTROLS */
-        #controls { margin-bottom: 20px; display: flex; gap: 10px; }
-        button { 
+        #controls { margin-bottom: 20px; display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; width: 100%; max-width: 400px;}
+        .btn { 
             padding: 12px 20px; border-radius: 8px; border: none; 
             font-weight: bold; cursor: pointer; transition: 0.2s; 
+            display: flex; align-items: center; justify-content: center;
         }
-        #startBtn { background: #38bdf8; color: #0f172a; }
+        
+        /* Input Buttons */
+        .btn-upload { background: #38bdf8; color: #0f172a; cursor: pointer; }
+        .btn-record { background: #f59e0b; color: #0f172a; }
+        .btn-record.recording { background: #ef4444; color: #fff; animation: pulseRecord 1s infinite; }
+        
+        /* Playback Buttons */
         #refBtn { background: #22c55e; color: #fff; display: none; }
         #stopBtn { background: #ef4444; color: #fff; display: none; }
+
+        @keyframes pulseRecord {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
 
         /* DYNAMIC GRID */
         #grid-container { 
@@ -46,7 +59,6 @@
         }
         #grid { 
             display: grid; 
-            /* Uses CSS variable to change columns dynamically */
             grid-template-columns: repeat(var(--cols, 3), 1fr); 
             gap: 5px; width: 100%; height: 100%; position: relative; 
         }
@@ -79,9 +91,15 @@
     </div>
 
     <div id="controls">
-        <button id="startBtn" onclick="initAudio()">INITIALIZE ENGINE</button>
-        <button id="refBtn" onclick="playReference()">REFERENCE</button>
-        <button id="stopBtn" onclick="stopEverything()">STOP</button>
+        <label class="btn btn-upload" id="uploadLabel">
+            📂 LOAD FILE
+            <input type="file" id="audioUpload" accept="audio/*" style="display: none;">
+        </label>
+        
+        <button id="recordBtn" class="btn btn-record">🎤 RECORD</button>
+        
+        <button id="refBtn" class="btn" onclick="playReference()">REFERENCE</button>
+        <button id="stopBtn" class="btn" onclick="stopEverything()">STOP</button>
     </div>
 
     <div id="grid-container">
@@ -89,36 +107,36 @@
         <div id="grid" style="--cols: 3;"></div>
     </div>
 
-    <p id="status">Waiting for engine...</p>
+    <p id="status">Upload a track or record audio to start!</p>
 
     <script>
         let audioCtx, mainBuffer;
         let activeSources = []; 
         
+        // Recording Variables
+        let mediaRecorder;
+        let audioChunks = [];
+        let isRecording = false;
+        
         // Dynamic Grid Logic
-        let gridSize = 3; // Starts at 3x3
+        let gridSize = 3; 
         let totalPieces = gridSize * gridSize;
         let pieces = [];
 
-        // Generates the scrambled array based on current totalPieces
         function scramblePieces() {
             pieces = Array.from({length: totalPieces}, (_, i) => i).sort(() => Math.random() - 0.5);
         }
-        scramblePieces(); // Initial scramble
+        scramblePieces(); 
 
-        // Handles the +/- buttons
         function changeGridSize(dir) {
             let newSize = gridSize + dir;
-            // Restrict between 3x3 and 5x5
             if (newSize >= 3 && newSize <= 5) {
                 gridSize = newSize;
                 totalPieces = gridSize * gridSize;
                 
-                // Update UI Labels and CSS variables
                 document.getElementById('grid-size-label').innerText = `${gridSize}x${gridSize}`;
                 document.getElementById('grid').style.setProperty('--cols', gridSize);
                 
-                // Reset the game state
                 scramblePieces();
                 stopEverything();
                 document.getElementById('grid-container').classList.remove('victory');
@@ -127,35 +145,101 @@
                     document.getElementById('status').innerText = `${totalPieces} Bars Loaded. Solve it!`;
                     drawGhostWave();
                 }
-                
                 render();
             }
         }
 
-        async function initAudio() {
+        // Helper to ensure AudioContext exists and is running
+        function initAudioCtx() {
             if (!audioCtx) {
                 audioCtx = new (window.AudioContext || window.webkitAudioContext)();
             }
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+        }
+
+        // Core function to process raw audio data into our puzzle buffer
+        async function processAudioData(arrayBuffer) {
             const status = document.getElementById('status');
-            status.innerText = "Loading Audio...";
-            
+            status.innerText = "Decoding Audio...";
             try {
-                const resp = await fetch('./mysound.mp3?v=' + Date.now()); 
-                if (!resp.ok) throw new Error("Audio file not found!");
-                const data = await resp.arrayBuffer();
-                mainBuffer = await audioCtx.decodeAudioData(data);
+                mainBuffer = await audioCtx.decodeAudioData(arrayBuffer);
                 
-                document.getElementById('startBtn').style.display = 'none';
+                // Hide inputs, show playback controls
+                document.getElementById('uploadLabel').style.display = 'none';
+                document.getElementById('recordBtn').style.display = 'none';
                 document.getElementById('refBtn').style.display = 'inline-block';
                 document.getElementById('stopBtn').style.display = 'inline-block';
+                
                 status.innerText = `${totalPieces} Bars Loaded. Solve it!`;
+                
+                // Reset the puzzle when new audio is loaded
+                scramblePieces();
+                document.getElementById('grid-container').classList.remove('victory');
                 
                 drawGhostWave();
                 render();
             } catch (e) {
-                status.innerText = "❌ " + e.message;
+                status.innerText = "❌ Error reading audio file!";
+                console.error(e);
             }
         }
+
+        // --- FILE UPLOAD LOGIC ---
+        document.getElementById('audioUpload').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            
+            initAudioCtx();
+            const reader = new FileReader();
+            reader.onload = async function(ev) {
+                await processAudioData(ev.target.result);
+            };
+            reader.readAsArrayBuffer(file);
+        });
+
+        // --- MICROPHONE RECORDING LOGIC ---
+        document.getElementById('recordBtn').addEventListener('click', async () => {
+            const recordBtn = document.getElementById('recordBtn');
+            const status = document.getElementById('status');
+
+            if (!isRecording) {
+                // START RECORDING
+                try {
+                    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                    mediaRecorder = new MediaRecorder(stream);
+                    audioChunks = [];
+
+                    mediaRecorder.ondataavailable = e => {
+                        if (e.data.size > 0) audioChunks.push(e.data);
+                    };
+
+                    mediaRecorder.onstop = async () => {
+                        initAudioCtx();
+                        const audioBlob = new Blob(audioChunks);
+                        const arrayBuffer = await audioBlob.arrayBuffer();
+                        await processAudioData(arrayBuffer);
+                    };
+
+                    mediaRecorder.start();
+                    isRecording = true;
+                    recordBtn.innerText = "🛑 STOP RECORDING";
+                    recordBtn.classList.add('recording');
+                    status.innerText = "🔴 Recording... Speak now!";
+                } catch (err) {
+                    status.innerText = "❌ Mic access denied or failed.";
+                    console.error("Mic error:", err);
+                }
+            } else {
+                // STOP RECORDING
+                mediaRecorder.stop();
+                isRecording = false;
+                recordBtn.innerText = "🎤 RECORD";
+                recordBtn.classList.remove('recording');
+                // The mediaRecorder.onstop event will handle processing
+            }
+        });
 
         function stopEverything() {
             activeSources.forEach(s => { try { s.stop(); } catch(e) {} });
@@ -169,15 +253,13 @@
             const gainNode = audioCtx.createGain();
             source.buffer = mainBuffer;
             
-            // Dynamic width based on total pieces
             const sliceWidth = mainBuffer.duration / totalPieces;
             const startOffset = idx * sliceWidth;
-            const playDuration = sliceWidth * 0.98; // Bleed control
+            const playDuration = sliceWidth * 0.98;
 
             source.connect(gainNode);
             gainNode.connect(audioCtx.destination);
             
-            // Snappy fade out
             gainNode.gain.setValueAtTime(1, audioCtx.currentTime + playDuration - 0.05);
             gainNode.gain.linearRampToValueAtTime(0, audioCtx.currentTime + playDuration);
             
@@ -219,7 +301,6 @@
                 div.className = `piece ${pIdx === i ? 'correct' : ''}`;
                 div.draggable = true;
                 
-                // Keep internal canvas math simple regardless of visual size
                 const cvs = document.createElement('canvas');
                 cvs.width = 100; cvs.height = 100;
                 div.appendChild(cvs);
@@ -244,14 +325,13 @@
                 grid.appendChild(div);
             });
 
-            if (isSolved && mainBuffer) { // Only trigger victory if audio is loaded
+            if (isSolved && mainBuffer) { 
                 document.getElementById('status').innerText = "🎉 HARMONY RESTORED!";
                 container.classList.add('victory');
                 playReference();
             }
         }
         
-        // Initial empty render
         render();
     </script>
 </body>
