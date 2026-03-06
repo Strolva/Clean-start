@@ -137,4 +137,122 @@
                 audioCtx = new (window.AudioContext || window.webkitAudioContext)();
             }
             const status = document.getElementById('status');
-            status.innerText = "Loading
+            status.innerText = "Loading Audio...";
+            
+            try {
+                const resp = await fetch('./mysound.mp3?v=' + Date.now()); 
+                if (!resp.ok) throw new Error("Audio file not found!");
+                const data = await resp.arrayBuffer();
+                mainBuffer = await audioCtx.decodeAudioData(data);
+                
+                document.getElementById('startBtn').style.display = 'none';
+                document.getElementById('refBtn').style.display = 'inline-block';
+                document.getElementById('stopBtn').style.display = 'inline-block';
+                status.innerText = `${totalPieces} Bars Loaded. Solve it!`;
+                
+                drawGhostWave();
+                render();
+            } catch (e) {
+                status.innerText = "❌ " + e.message;
+            }
+        }
+
+        function stopEverything() {
+            activeSources.forEach(s => { try { s.stop(); } catch(e) {} });
+            activeSources = [];
+        }
+
+        function playSlice(idx) {
+            if (!mainBuffer) return;
+            stopEverything(); 
+            const source = audioCtx.createBufferSource();
+            const gainNode = audioCtx.createGain();
+            source.buffer = mainBuffer;
+            
+            // Dynamic width based on total pieces
+            const sliceWidth = mainBuffer.duration / totalPieces;
+            const startOffset = idx * sliceWidth;
+            const playDuration = sliceWidth * 0.98; // Bleed control
+
+            source.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+            
+            // Snappy fade out
+            gainNode.gain.setValueAtTime(1, audioCtx.currentTime + playDuration - 0.05);
+            gainNode.gain.linearRampToValueAtTime(0, audioCtx.currentTime + playDuration);
+            
+            source.start(0, startOffset, playDuration);
+            activeSources.push(source);
+        }
+
+        function playReference() {
+            if (!mainBuffer) return;
+            stopEverything();
+            const source = audioCtx.createBufferSource();
+            source.buffer = mainBuffer;
+            source.connect(audioCtx.destination);
+            source.start(0);
+            activeSources.push(source);
+            document.getElementById('status').innerText = "Playing Reference...";
+        }
+
+        function drawGhostWave() {
+            const canvas = document.getElementById('ghost-wave');
+            canvas.width = 400; canvas.height = 400;
+            const ctx = canvas.getContext('2d');
+            ctx.strokeStyle = '#38bdf8'; ctx.lineWidth = 2;
+            ctx.beginPath(); ctx.moveTo(0, 200);
+            for(let x=0; x<400; x++) {
+                ctx.lineTo(x, 200 + Math.sin(x*0.05)*40 + Math.cos(x*0.02)*20);
+            }
+            ctx.stroke();
+        }
+
+        function render() {
+            const grid = document.getElementById('grid');
+            const container = document.getElementById('grid-container');
+            grid.innerHTML = '';
+            const isSolved = pieces.every((p, i) => p === i);
+
+            pieces.forEach((pIdx, i) => {
+                const div = document.createElement('div');
+                div.className = `piece ${pIdx === i ? 'correct' : ''}`;
+                div.draggable = true;
+                
+                // Keep internal canvas math simple regardless of visual size
+                const cvs = document.createElement('canvas');
+                cvs.width = 100; cvs.height = 100;
+                div.appendChild(cvs);
+                const ctx = cvs.getContext('2d');
+                ctx.strokeStyle = pIdx === i ? '#38bdf8' : '#64748b';
+                ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(0, 50);
+                for(let x=0; x<100; x++) {
+                    const gx = x + (pIdx * 100);
+                    ctx.lineTo(x, 50 + Math.sin(gx*0.05)*30 + Math.cos(gx*0.02)*15);
+                }
+                ctx.stroke();
+
+                div.onclick = () => playSlice(pIdx);
+                div.ondragstart = (e) => e.dataTransfer.setData('text', i);
+                div.ondragover = (e) => e.preventDefault();
+                div.ondrop = (e) => {
+                    const from = e.dataTransfer.getData('text');
+                    [pieces[from], pieces[i]] = [pieces[i], pieces[from]];
+                    playSlice(pIdx);
+                    render();
+                };
+                grid.appendChild(div);
+            });
+
+            if (isSolved && mainBuffer) { // Only trigger victory if audio is loaded
+                document.getElementById('status').innerText = "🎉 HARMONY RESTORED!";
+                container.classList.add('victory');
+                playReference();
+            }
+        }
+        
+        // Initial empty render
+        render();
+    </script>
+</body>
+</html>
