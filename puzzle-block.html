@@ -187,8 +187,18 @@
                 playReference();
             }
         }
+
+        document.getElementById('return-hub-btn').addEventListener('click', () => {
+    // Option A: If your hub is a separate HTML file
+    window.location.href = 'hub.html'; 
+    
+    // Option B: If your hub is just a hidden <div> in the same file
+    // document.getElementById('puzzle-screen').style.display = 'none';
+    // document.getElementById('hub-screen').style.display = 'block';
+});
     </script>
 </body>
 </html>
+
 
 
