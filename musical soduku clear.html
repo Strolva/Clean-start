@@ -81,6 +81,8 @@
         #controls {
             margin-top: 25px;
             display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
             gap: 15px;
         }
 
@@ -98,6 +100,13 @@
 
         button:hover {
             background: #2980b9;
+        }
+
+        #home-btn {
+            background: #9b59b6; /* Distinct purple color for the home key */
+        }
+        #home-btn:hover {
+            background: #8e44ad;
         }
 
         #check-btn {
@@ -147,6 +156,7 @@
     <div id="sudoku-container"></div>
 
     <div id="controls">
+        <button id="home-btn" onclick="playHomeKey()">Play Home Key (Tonic)</button>
         <button id="check-btn" onclick="checkFullSymphony()">Validate Harmony</button>
         <button onclick="resetPuzzle()">Reset Base Layout</button>
         <button onclick="clearAll()">Clear Board</button>
@@ -187,6 +197,11 @@
         
         oscillator.start();
         oscillator.stop(audioCtx.currentTime + 0.6);
+    }
+
+    // Plays the root grounding note 'A' as a reference point for ear training
+    function playHomeKey() {
+        playNote('A');
     }
 
     function playDissonantTone() {
@@ -241,7 +256,6 @@
     }
 
     function cycleNote(index, cellElement, direction) {
-        // FIX: If this is a base clue, play the note to remind the user, but DO NOT change it.
         if (cellElement.classList.contains('clue-hint')) {
             playNote(currentBoard[index]);
             return;
