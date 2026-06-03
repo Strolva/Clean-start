@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pentatonic Sudoku: Absolute Auditory</title>
+    <style>
+        :root {
+            --uniform-turquoise: #00e5ff;
+            --clue-ink: #2f3542; 
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #2f3542; 
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+            color: #f1f2f6;
+        }
+
+        h1 {
+            margin-bottom: 5px;
+            color: var(--uniform-turquoise);
+        }
+
+        p {
+            margin-bottom: 20px;
+            text-align: center;
+            max-width: 500px;
+            line-height: 1.4;
+            color: #a4b0be;
+        }
+
+        #sudoku-container {
+            display: grid;
+            grid-template-columns: repeat(5, 60px);
+            grid-template-rows: repeat(5, 60px);
+            gap: 5px;
+            background: #1e222e; 
+            padding: 7px;
+            border-radius: 8px;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.5);
+            position: relative; 
+        }
+
+        .cell {
+            width: 60px;
+            height: 60px;
+            background: var(--uniform-turquoise);
+            box-shadow: 0 0 4px rgba(0, 229, 255, 0.3);
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            user-select: none;
+            transition: transform 0.1s, filter 0.1s;
+            position: relative;
+        }
+
+        .cell:hover {
+            filter: brightness(0.9);
+        }
+
+        .cell:active {
+            transform: scale(0.95);
+        }
+
+        /* Clues are only tracked by a tiny ink-dot so you don't lose your starting anchors */
+        .cell.clue-hint::after {
+            content: "•";
+            position: absolute;
+            bottom: 3px;
+            right: 3px;
+            font-size: 0.8rem;
+            color: var(--clue-ink);
+        }
+
+        #controls {
+            margin-top: 25px;
+            display: flex;
+            gap: 15px;
+        }
+
+        button {
+            padding: 10px 20px;
+            font-size: 1rem;
+            font-weight: bold;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            background: #3498db;
+            color: white;
+            transition: background 0.2s;
+        }
+
+        button:hover {
+            background: #2980b9;
+        }
+
+        #check-btn {
+            background: #2ecc71;
+        }
+        #check-btn:hover {
+            background: #27ae60;
+        }
+
+        #message {
+            margin-top: 15px;
+            font-weight: bold;
+            font-size: 1.2rem;
+            height: 30px;
+        }
+
+        /* Success State: Elegant, slow pulsing animation for the entire puzzle grid */
+        .victory-throb {
+            animation: victoryPulse 2.5s ease-in-out infinite;
+        }
+
+        @keyframes victoryPulse {
+            0% {
+                transform: scale(1);
+                box-shadow: 0 8px 20px rgba(0, 229, 255, 0.4);
+            }
+            50% {
+                transform: scale(1.02);
+                box-shadow: 0 12px 30px rgba(0, 229, 255, 0.8);
+            }
+            100% {
+                transform: scale(1);
+                box-shadow: 0 8px 20px rgba(0, 229, 255, 0.4);
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Pentatonic Sudoku: Absolute Auditory</h1>
+    <p>
+        Fill the grid using only your hearing. Every square is completely identical. 
+        No visual hints or error highlights are provided during play.
+        <br><small style="color: #a4b0be;">Left-click to cycle forward, Right-click to cycle backward.</small>
+    </p>
+
+    <div id="sudoku-container"></div>
+
+    <div id="controls">
+        <button id="check-btn" onclick="checkFullSymphony()">Validate Harmony</button>
+        <button onclick="resetPuzzle()">Reset Base Layout</button>
+        <button onclick="clearAll()">Clear Board</button>
+    </div>
+
+    <div id="message"></div>
+
+<script>
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const frequencies = { 'A': 440.00, 'B': 493.88, 'C': 523.25, 'D': 587.33, 'E': 659.25 };
+    const notes = ['', 'A', 'B', 'C', 'D', 'E'];
+
+    const boardLayout = [
+        { initial: 'A' }, { initial: ''  }, { initial: 'C' }, { initial: ''  }, { initial: ''  },
+        { initial: ''  }, { initial: 'C' }, { initial: ''  }, { initial: ''  }, { initial: 'E' },
+        { initial: 'D' }, { initial: ''  }, { initial: 'A' }, { initial: ''  }, { initial: ''  },
+        { initial: 'C' }, { initial: ''  }, { initial: ''  }, { initial: 'E' }, { initial: ''  },
+        { initial: ''  }, { initial: ''  }, { initial: 'D' }, { initial: ''  }, { initial: 'B' }
+    ];
+
+    let currentBoard = [];
+
+    function playNote(note) {
+        if (!note || !frequencies[note]) return;
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+
+        const oscillator = audioCtx.createOscillator();
+        const gainNode = audioCtx.createGain();
+        
+        oscillator.type = 'sine';
+        oscillator.frequency.setValueAtTime(frequencies[note], audioCtx.currentTime);
+        
+        gainNode.gain.setValueAtTime(0.3, audioCtx.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 0.6);
+        
+        oscillator.connect(gainNode);
+        gainNode.connect(audioCtx.destination);
+        
+        oscillator.start();
+        oscillator.stop(audioCtx.currentTime + 0.6);
+    }
+
+    function playDissonantTone() {
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+        const osc1 = audioCtx.createOscillator();
+        const osc2 = audioCtx.createOscillator();
+        const gainNode = audioCtx.createGain();
+
+        osc1.type = 'sawtooth';
+        osc2.type = 'sine';
+        osc1.frequency.setValueAtTime(120.00, audioCtx.currentTime);
+        osc2.frequency.setValueAtTime(125.00, audioCtx.currentTime); 
+
+        gainNode.gain.setValueAtTime(0.2, audioCtx.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 0.5);
+
+        osc1.connect(gainNode);
+        osc2.connect(gainNode);
+        gainNode.connect(audioCtx.destination);
+
+        osc1.start(); osc2.start();
+        osc1.stop(audioCtx.currentTime + 0.5); osc2.stop(audioCtx.currentTime + 0.5);
+    }
+
+    function initBoard(loadClues) {
+        const container = document.getElementById('sudoku-container');
+        container.innerHTML = '';
+        currentBoard = [];
+        container.classList.remove('victory-throb');
+
+        boardLayout.forEach((cellData, index) => {
+            const initialVal = loadClues ? cellData.initial : '';
+            currentBoard.push(initialVal);
+            
+            const cell = document.createElement('div');
+            cell.classList.add('cell');
+            cell.id = `cell-${index}`;
+
+            if (cellData.initial !== '' && loadClues) {
+                cell.classList.add('clue-hint');
+            }
+
+            cell.addEventListener('click', () => cycleNote(index, cell, 1));
+            cell.addEventListener('contextmenu', (e) => {
+                e.preventDefault();
+                cycleNote(index, cell, -1);
+            });
+
+            container.appendChild(cell);
+        });
+        document.getElementById('message').textContent = '';
+    }
+
+    function cycleNote(index, cellElement, direction) {
+        // FIX: If this is a base clue, play the note to remind the user, but DO NOT change it.
+        if (cellElement.classList.contains('clue-hint')) {
+            playNote(currentBoard[index]);
+            return;
+        }
+
+        let currentNote = currentBoard[index];
+        let currentIndex = notes.indexOf(currentNote);
+        
+        let nextIndex = (currentIndex + direction + notes.length) % notes.length;
+        let nextNote = notes[nextIndex];
+        
+        currentBoard[index] = nextNote;
+
+        if (nextNote !== '') {
+            playNote(nextNote);
+        }
+    }
+
+    function checkFullSymphony() {
+        const container = document.getElementById('sudoku-container');
+        const msg = document.getElementById('message');
+        container.classList.remove('victory-throb'); 
+        
+        if (currentBoard.includes('')) {
+            msg.style.color = '#e67e22';
+            msg.textContent = "The sonic architecture is incomplete.";
+            playDissonantTone();
+            return;
+        }
+
+        const isUnique5 = (arr) => new Set(arr).size === 5;
+        let perfectHarmony = true;
+
+        for (let i = 0; i < 5; i++) {
+            let row = []; let col = [];
+            for (let j = 0; j < 5; j++) {
+                row.push(currentBoard[i * 5 + j]);
+                col.push(currentBoard[j * 5 + i]);
+            }
+            if (!isUnique5(row) || !isUnique5(col)) {
+                perfectHarmony = false;
+                break;
+            }
+        }
+
+        if (!perfectHarmony) {
+            msg.style.color = '#e74c3c';
+            msg.textContent = "Dissonance! There are mistakes hiding inside your grid.";
+            playDissonantTone();
+            return;
+        }
+
+        msg.style.color = '#2ecc71';
+        msg.textContent = "🎉 Perfect Harmony! The grid frequencies align perfectly!";
+        container.classList.add('victory-throb');
+
+        const victoryNotes = ['A', 'B', 'C', 'D', 'E'];
+        victoryNotes.forEach((note, i) => {
+            setTimeout(() => playNote(note), i * 130);
+        });
+    }
+
+    function resetPuzzle() { initBoard(true); }
+    function clearAll() { initBoard(false); }
+
+    initBoard(true);
+</script>
+</body>
+</html>
