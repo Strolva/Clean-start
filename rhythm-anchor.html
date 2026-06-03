@@ -3,49 +3,78 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Bocs Sain - Rhythm Anchor</title>
+    <title>Bocs Sain | Rhythm Anchor</title>
     <style>
-        /* This sets up our dark, relaxing background */
         body {
             margin: 0;
             padding: 0;
             height: 100vh;
-            background-color: #0b0f19;
+            background-color: #121212; /* Matches your index background */
             display: flex;
             flex-direction: column;
             justify-content: center;
             align-items: center;
             overflow: hidden;
-            font-family: sans-serif;
+            font-family: 'Courier New', Courier, monospace; /* Matches your index font */
             user-select: none;
             -webkit-user-select: none;
+            position: relative;
         }
 
-        /* The prompt message at the top */
+        /* Top navigation header bar */
+        #nav-header {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            padding: 20px;
+            box-sizing: border-box;
+            display: flex;
+            justify-content: flex-start;
+        }
+
+        /* Structured Home/Menu button matching your border style */
+        .menu-btn {
+            color: #666;
+            text-decoration: none;
+            border: 1px solid #333;
+            padding: 6px 14px;
+            font-size: 0.9rem;
+            transition: all 0.2s;
+            background: #1e1e1e;
+        }
+        .menu-btn:hover {
+            color: #00d2ff;
+            border-color: #00d2ff;
+            background: rgba(0, 210, 255, 0.05);
+        }
+
+        /* Instructions text moved slightly down to clear the header */
         #instruction {
-            color: #7a889b;
+            color: #e0e0e0;
             font-size: 1.1rem;
             position: absolute;
-            top: 10%;
+            top: 20%;
             text-align: center;
-            width: 80%;
+            width: 85%;
+            line-height: 1.6;
             pointer-events: none;
             transition: opacity 1s ease;
+            letter-spacing: 1px;
         }
 
-        /* The central breathing circle */
+        /* The central breathing anchor using your Cyber Blue style */
         #anchor-circle {
-            width: 140px;
-            height: 140px;
+            width: 130px;
+            height: 130px;
             border-radius: 50%;
-            background: radial-gradient(circle, #4ea8de 0%, #5390d9 100%);
-            box-shadow: 0 0 40px rgba(78, 168, 222, 0.3);
-            /* This ensures changes to the circle's size happen smoothly */
+            background: radial-gradient(circle, #00d2ff 0%, #007a99 100%);
+            box-shadow: 0 0 50px rgba(0, 210, 255, 0.4);
             transition: transform 1s ease-in-out; 
             pointer-events: none;
         }
 
-        /* This is the rule that scales the circle up when it's breathing */
+        /* Visual size increase when expanding */
         .expanded {
             transform: scale(2.2);
         }
@@ -53,7 +82,12 @@
 </head>
 <body>
 
-    <div id="instruction">Feel your pulse.<br>Tap the screen 4 times to your rhythm.</div>
+    <div id="nav-header">
+        <a href="index.html" class="menu-btn">[ MENU ]</a>
+    </div>
+
+    <div id="instruction">FEEL YOUR PULSE.<br>TAP ANYWHERE ON THE SCREEN<br>4 TIMES TO YOUR RHYTHM.</div>
+    
     <div id="anchor-circle"></div>
 
     <script>
@@ -64,19 +98,55 @@
         let currentBPM = 80;
         const targetBPM = 60;
         let isBreathing = false;
-        let breathLoop = null;
+        
+        // Setup for our built-in synthesizer 
+        let audioCtx = null;
 
-        // This listens for a touch ANYWHERE on the screen
+        // Function to create a deep, organic heartbeat thump sound
+        function playHeartbeatSound() {
+            try {
+                // Initialize the audio engine if it hasn't started yet
+                if (!audioCtx) {
+                    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                }
+
+                // Create an oscillator (the sound generator) and a gain node (the volume control)
+                const oscillator = audioCtx.createOscillator();
+                const gainNode = audioCtx.createGain();
+
+                oscillator.connect(gainNode);
+                gainNode.connect(audioCtx.destination);
+
+                // Set type to sine wave for a clean, deep bass tone (like a sub-bass)
+                oscillator.type = 'sine';
+                
+                // Start at a low 55Hz tone and slide it down rapidly to mimic a natural pulse
+                oscillator.frequency.setValueAtTime(55, audioCtx.currentTime);
+                oscillator.frequency.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.4);
+
+                // Smoothly fade out the volume so it sounds like a warm "thump" instead of a beep
+                gainNode.gain.setValueAtTime(0.3, audioCtx.currentTime); // Volume level
+                gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.4);
+
+                oscillator.start();
+                oscillator.stop(audioCtx.currentTime + 0.4);
+            } catch (e) {
+                console.log("Audio not allowed yet or unsupported");
+            }
+        }
+
+        // Listen for a touch anywhere on the screen
         document.body.addEventListener('pointerdown', (e) => {
-            // If the app hasn't locked into a rhythm yet, collect taps
+            // Ignore touches if they hit the menu button
+            if (e.target.classList.contains('menu-btn')) return;
+
             if (!isBreathing) {
                 const now = performance.now();
                 tapTimes.push(now);
                 
-                // Give a tiny haptic nudge for reassurance on every tap
+                // Haptic response for every tap
                 if ('vibrate' in navigator) navigator.vibrate(40);
 
-                // Once we have 4 taps, calculate the rhythm
                 if (tapTimes.length === 4) {
                     let totalGaps = 0;
                     for (let i = 1; i < tapTimes.length; i++) {
@@ -84,14 +154,12 @@
                     }
                     let averageGapInSeconds = (totalGaps / 3) / 1000;
                     
-                    // Convert that gap into Beats Per Minute
                     currentBPM = 60 / averageGapInSeconds;
                     
-                    // Cap it to realistic human limits just in case of accidental tremors
+                    // Safety check boundaries
                     if (currentBPM > 120) currentBPM = 120;
                     if (currentBPM < 50) currentBPM = 50;
 
-                    // Start the breathing routine!
                     isBreathing = true;
                     instruction.style.opacity = '0';
                     startBreathingLoop();
@@ -99,32 +167,30 @@
             }
         });
 
-        // This manages the slow expanding and contracting animation
         function startBreathingLoop() {
             let cycleActive = true;
 
             function runCycle() {
                 if (cycleActive) {
                     circle.classList.add('expanded');
-                    if ('vibrate' in navigator) navigator.vibrate([60, 30, 60]); // Heartbeat vibration
+                    // Play the custom synth sound and trigger phone vibration together
+                    playHeartbeatSound();
+                    if ('vibrate' in navigator) navigator.vibrate([60, 30, 60]); 
                 } else {
                     circle.classList.remove('expanded');
                 }
 
                 cycleActive = !cycleActive;
 
-                // Calculate how long half a breath should last based on current BPM
                 let delay = (60 / currentBPM) * 1000;
                 
-                // Smoothly lower the BPM down toward our target relaxation rate
                 if (!cycleActive && currentBPM > targetBPM) {
                     currentBPM -= 0.5; 
                 }
 
-                // Adjust the animation speed to match the current rhythm dynamically
                 circle.style.transition = `transform ${delay / 1000}s ease-in-out`;
 
-                breathLoop = setTimeout(runCycle, delay);
+                setTimeout(runCycle, delay);
             }
 
             runCycle();
