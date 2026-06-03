@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bocs Sain - Rhythm Anchor</title>
+    <style>
+        /* This sets up our dark, relaxing background */
+        body {
+            margin: 0;
+            padding: 0;
+            height: 100vh;
+            background-color: #0b0f19;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+            font-family: sans-serif;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        /* The prompt message at the top */
+        #instruction {
+            color: #7a889b;
+            font-size: 1.1rem;
+            position: absolute;
+            top: 10%;
+            text-align: center;
+            width: 80%;
+            pointer-events: none;
+            transition: opacity 1s ease;
+        }
+
+        /* The central breathing circle */
+        #anchor-circle {
+            width: 140px;
+            height: 140px;
+            border-radius: 50%;
+            background: radial-gradient(circle, #4ea8de 0%, #5390d9 100%);
+            box-shadow: 0 0 40px rgba(78, 168, 222, 0.3);
+            /* This ensures changes to the circle's size happen smoothly */
+            transition: transform 1s ease-in-out; 
+            pointer-events: none;
+        }
+
+        /* This is the rule that scales the circle up when it's breathing */
+        .expanded {
+            transform: scale(2.2);
+        }
+    </style>
+</head>
+<body>
+
+    <div id="instruction">Feel your pulse.<br>Tap the screen 4 times to your rhythm.</div>
+    <div id="anchor-circle"></div>
+
+    <script>
+        const instruction = document.getElementById('instruction');
+        const circle = document.getElementById('anchor-circle');
+        
+        let tapTimes = [];
+        let currentBPM = 80;
+        const targetBPM = 60;
+        let isBreathing = false;
+        let breathLoop = null;
+
+        // This listens for a touch ANYWHERE on the screen
+        document.body.addEventListener('pointerdown', (e) => {
+            // If the app hasn't locked into a rhythm yet, collect taps
+            if (!isBreathing) {
+                const now = performance.now();
+                tapTimes.push(now);
+                
+                // Give a tiny haptic nudge for reassurance on every tap
+                if ('vibrate' in navigator) navigator.vibrate(40);
+
+                // Once we have 4 taps, calculate the rhythm
+                if (tapTimes.length === 4) {
+                    let totalGaps = 0;
+                    for (let i = 1; i < tapTimes.length; i++) {
+                        totalGaps += (tapTimes[i] - tapTimes[i-1]);
+                    }
+                    let averageGapInSeconds = (totalGaps / 3) / 1000;
+                    
+                    // Convert that gap into Beats Per Minute
+                    currentBPM = 60 / averageGapInSeconds;
+                    
+                    // Cap it to realistic human limits just in case of accidental tremors
+                    if (currentBPM > 120) currentBPM = 120;
+                    if (currentBPM < 50) currentBPM = 50;
+
+                    // Start the breathing routine!
+                    isBreathing = true;
+                    instruction.style.opacity = '0';
+                    startBreathingLoop();
+                }
+            }
+        });
+
+        // This manages the slow expanding and contracting animation
+        function startBreathingLoop() {
+            let cycleActive = true;
+
+            function runCycle() {
+                if (cycleActive) {
+                    circle.classList.add('expanded');
+                    if ('vibrate' in navigator) navigator.vibrate([60, 30, 60]); // Heartbeat vibration
+                } else {
+                    circle.classList.remove('expanded');
+                }
+
+                cycleActive = !cycleActive;
+
+                // Calculate how long half a breath should last based on current BPM
+                let delay = (60 / currentBPM) * 1000;
+                
+                // Smoothly lower the BPM down toward our target relaxation rate
+                if (!cycleActive && currentBPM > targetBPM) {
+                    currentBPM -= 0.5; 
+                }
+
+                // Adjust the animation speed to match the current rhythm dynamically
+                circle.style.transition = `transform ${delay / 1000}s ease-in-out`;
+
+                breathLoop = setTimeout(runCycle, delay);
+            }
+
+            runCycle();
+        }
+    </script>
+</body>
+</html>
