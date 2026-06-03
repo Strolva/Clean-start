@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pentatonic Grid Symphony: Hard Set Piece</title>
+    <style>
+        :root {
+            --zone-1: #ffdee9;
+            --zone-2: #e0f7fa;
+            --zone-3: #e1bee7;
+            --zone-4: #fff9c4;
+            --zone-5: #c8e6c9;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f4f7f6;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+            color: #333;
+        }
+
+        h1 {
+            margin-bottom: 5px;
+            color: #2c3e50;
+        }
+
+        p {
+            margin-bottom: 20px;
+            text-align: center;
+            max-width: 550px;
+            line-height: 1.4;
+        }
+
+        .game-layout {
+            display: grid;
+            grid-template-columns: 40px 1fr;
+            grid-template-rows: 40px 1fr;
+            gap: 5px;
+            align-items: center;
+            justify-items: center;
+        }
+
+        .top-triggers {
+            grid-column: 2;
+            grid-row: 1;
+            display: grid;
+            grid-template-columns: repeat(5, 60px);
+            gap: 4px;
+            justify-items: center;
+        }
+
+        .side-triggers {
+            grid-column: 1;
+            grid-row: 2;
+            display: grid;
+            grid-template-rows: repeat(5, 60px);
+            gap: 4px;
+            align-items: center;
+        }
+
+        #sudoku-container {
+            grid-column: 2;
+            grid-row: 2;
+            display: grid;
+            grid-template-columns: repeat(5, 60px);
+            grid-template-rows: repeat(5, 60px);
+            gap: 4px;
+            background: #34495e;
+            padding: 6px;
+            border-radius: 8px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+        }
+
+        .trigger-btn {
+            background: #34495e;
+            color: #fff;
+            border: none;
+            border-radius: 4px;
+            width: 30px;
+            height: 30px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.2s, transform 0.1s;
+        }
+        .trigger-btn:hover { background: #1abc9c; }
+        .trigger-btn:active { transform: scale(0.9); }
+
+        .cell {
+            width: 60px;
+            height: 60px;
+            background: white;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.4rem;
+            font-weight: bold;
+            cursor: pointer;
+            user-select: none;
+            transition: transform 0.1s, filter 0.2s, background-color 0.3s, color 0.3s;
+            position: relative;
+        }
+
+        .cell:hover { filter: brightness(0.92); }
+        .cell:active { transform: scale(0.95); }
+
+        /* Emphasized set piece clues */
+        .cell.clue-hint {
+            background-color: #e2e8f0 !important;
+            color: #1e293b;
+            font-weight: 800;
+        }
+        .cell.clue-hint::after {
+            content: "•";
+            position: absolute;
+            bottom: 2px;
+            font-size: 0.6rem;
+            color: #64748b;
+        }
+
+        .cell.conflict {
+            color: #d32f2f !important;
+            font-weight: 900;
+            animation: shake 0.2s ease-in-out;
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-2px); }
+            75% { transform: translateX(2px); }
+        }
+
+        /* Aesthetics-only layout coloring to segment quadrants easily */
+        .z1 { background-color: var(--zone-1); }
+        .z2 { background-color: var(--zone-2); }
+        .z3 { background-color: var(--zone-3); }
+        .z4 { background-color: var(--zone-4); }
+        .z5 { background-color: var(--zone-5); }
+
+        .keyboard-container {
+            margin-top: 30px;
+            display: flex;
+            background: #2c3e50;
+            padding: 10px 15px;
+            border-radius: 8px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+            position: relative;
+        }
+
+        .piano-key {
+            width: 45px;
+            height: 130px;
+            background: white;
+            border: 1px solid #ccc;
+            border-radius: 0 0 4px 4px;
+            cursor: pointer;
+            display: flex;
+            align-items: flex-end;
+            justify-content: center;
+            padding-bottom: 10px;
+            font-weight: bold;
+            font-size: 1rem;
+            color: #555;
+            user-select: none;
+            position: relative;
+            z-index: 1;
+            transition: background 0.1s;
+        }
+
+        .piano-key.black {
+            width: 28px;
+            height: 80px;
+            background: #111;
+            color: transparent;
+            margin-left: -14px;
+            margin-right: -14px;
+            z-index: 2;
+            border-radius: 0 0 3px 3px;
+        }
+
+        .piano-key.active-white { background: #1abc9c !important; color: white; }
+        .piano-key.active-black { background: #16a085 !important; }
+
+        #controls {
+            margin-top: 25px;
+            display: flex;
+            gap: 15px;
+        }
+
+        button {
+            padding: 10px 20px;
+            font-size: 1rem;
+            font-weight: bold;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            background: #3498db;
+            color: white;
+            transition: background 0.2s;
+        }
+
+        button:hover { background: #2980b9; }
+        #check-btn { background: #2ecc71; }
+        #check-btn:hover { background: #27ae60; }
+
+        #message {
+            margin-top: 15px;
+            font-weight: bold;
+            font-size: 1.2rem;
+            height: 30px;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Pentatonic Grid Symphony</h1>
+    <p>
+        <strong>Asymmetric Set-Piece Challenge:</strong> The starting layout has been carefully crafted so that standard staircases won't work. Use deduction across rows and columns to find the unique hidden melody!
+    </p>
+
+    <div class="game-layout">
+        <div class="top-triggers" id="top-triggers"></div>
+        <div class="side-triggers" id="side-triggers"></div>
+        <div id="sudoku-container"></div>
+    </div>
+
+    <div class="keyboard-container" id="piano-keyboard"></div>
+
+    <div id="controls">
+        <button id="check-btn" onclick="checkFullSymphony()">Check Symphony</button>
+        <button onclick="resetPuzzle()">Reset Clues</button>
+        <button onclick="clearAll()">Clear Board</button>
+    </div>
+
+    <div id="message"></div>
+
+<script>
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const frequencies = { 'A': 440.00, 'B': 493.88, 'C': 523.25, 'D': 587.33, 'E': 659.25 };
+    const notes = ['', 'A', 'B', 'C', 'D', 'E'];
+
+    // NEW ASYMMETRIC SUDOKU SET-PIECE
+    // Hand-crafted layout with 11 clues designed to stop "staircase shifting" cheats.
+    const boardLayout = [
+        { zone: 1, initial: 'A' }, { zone: 1, initial: 'B' }, { zone: 2, initial: ''  }, { zone: 2, initial: ''  }, { zone: 2, initial: 'E' },
+        { zone: 1, initial: ''  }, { zone: 1, initial: ''  }, { zone: 3, initial: 'D' }, { zone: 2, initial: ''  }, { zone: 2, initial: ''  },
+        { zone: 1, initial: ''  }, { zone: 3, initial: 'E' }, { zone: 3, initial: ''  }, { zone: 3, initial: 'A' }, { zone: 5, initial: ''  },
+        { zone: 4, initial: 'C' }, { zone: 4, initial: ''  }, { zone: 3, initial: ''  }, { zone: 5, initial: ''  }, { zone: 5, initial: 'D' },
+        { zone: 4, initial: ''  }, { zone: 4, initial: 'D' }, { zone: 4, initial: ''  }, { zone: 5, initial: 'E' }, { zone: 5, initial: ''  }
+    ];
+
+    let currentBoard = [];
+
+    function playNote(note, duration = 0.5) {
+        if (!note || !frequencies[note]) return;
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+
+        const oscillator = audioCtx.createOscillator();
+        const gainNode = audioCtx.createGain();
+        
+        oscillator.type = 'sine';
+        oscillator.frequency.setValueAtTime(frequencies[note], audioCtx.currentTime);
+        
+        gainNode.gain.setValueAtTime(0.25, audioCtx.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + duration);
+        
+        oscillator.connect(gainNode);
+        gainNode.connect(audioCtx.destination);
+        
+        oscillator.start();
+        oscillator.stop(audioCtx.currentTime + duration);
+
+        lightUpKey(note, duration * 1000);
+    }
+
+    function lightUpKey(note, durationMs) {
+        const keyElement = document.getElementById(`key-${note}`);
+        if (!keyElement) return;
+
+        const isBlack = keyElement.classList.contains('black');
+        const activeClass = isBlack ? 'active-black' : 'active-white';
+
+        keyElement.classList.add(activeClass);
+        setTimeout(() => {
+            keyElement.classList.remove(activeClass);
+        }, durationMs);
+    }
+
+    function playSequence(noteArray) {
+        let delay = 0;
+        noteArray.forEach(note => {
+            if (note !== '') {
+                setTimeout(() => playNote(note, 0.4), delay);
+                delay += 250;
+            }
+        });
+    }
+
+    function buildKeyboard() {
+        const keyboard = document.getElementById('piano-keyboard');
+        keyboard.innerHTML = '';
+        
+        const layout = [
+            { note: 'A', black: false }, { note: 'A#', black: true },
+            { note: 'B', black: false }, { note: 'C', black: false },
+            { note: 'C#', black: true },  { note: 'D', black: false },
+            { note: 'D#', black: true },  { note: 'E', black: false },
+            { note: 'F', black: false },  { note: 'F#', black: true },
+            { note: 'G', black: false },  { note: 'G#', black: true }
+        ];
+
+        layout.forEach(k => {
+            const el = document.createElement('div');
+            el.className = `piano-key ${k.black ? 'black' : ''}`;
+            el.id = `key-${k.note}`;
+            if (!k.black) el.textContent = k.note;
+            el.addEventListener('mousedown', () => playNote(k.note));
+            keyboard.appendChild(el);
+        });
+    }
+
+    function buildTriggers() {
+        const topTriggers = document.getElementById('top-triggers');
+        const sideTriggers = document.getElementById('side-triggers');
+        topTriggers.innerHTML = '';
+        sideTriggers.innerHTML = '';
+
+        for (let i = 0; i < 5; i++) {
+            const colBtn = document.createElement('button');
+            colBtn.className = 'trigger-btn';
+            colBtn.textContent = '▼';
+            colBtn.addEventListener('click', () => {
+                let colNotes = [];
+                for (let r = 0; r < 5; r++) colNotes.push(currentBoard[r * 5 + i]);
+                playSequence(colNotes);
+            });
+            topTriggers.appendChild(colBtn);
+
+            const rowBtn = document.createElement('button');
+            rowBtn.className = 'trigger-btn';
+            rowBtn.textContent = '▶';
+            rowBtn.addEventListener('click', () => {
+                let rowNotes = [];
+                for (let c = 0; c < 5; c++) rowNotes.push(currentBoard[i * 5 + c]);
+                playSequence(rowNotes);
+            });
+            sideTriggers.appendChild(rowBtn);
+        }
+    }
+
+    function initBoard(loadClues) {
+        const container = document.getElementById('sudoku-container');
+        container.innerHTML = '';
+        currentBoard = [];
+
+        boardLayout.forEach((cellData, index) => {
+            const initialVal = loadClues ? cellData.initial : '';
+            currentBoard.push(initialVal);
+            
+            const cell = document.createElement('div');
+            cell.classList.add('cell', `z${cellData.zone}`);
+            cell.id = `cell-${index}`;
+            cell.textContent = initialVal;
+
+            if (cellData.initial !== '' && loadClues) {
+                cell.classList.add('clue-hint');
+            }
+
+            cell.addEventListener('click', () => cycleNote(index, cell, 1));
+            cell.addEventListener('contextmenu', (e) => {
+                e.preventDefault();
+                cycleNote(index, cell, -1);
+            });
+
+            container.appendChild(cell);
+        });
+        document.getElementById('message').textContent = '';
+        scanForConflicts();
+    }
+
+    function cycleNote(index, cellElement, direction) {
+        let currentNote = currentBoard[index];
+        let currentIndex = notes.indexOf(currentNote);
+        
+        let nextIndex = (currentIndex + direction + notes.length) % notes.length;
+        let nextNote = notes[nextIndex];
+        
+        currentBoard[index] = nextNote;
+        cellElement.textContent = nextNote;
+        
+        if (nextNote !== '') {
+            playNote(nextNote);
+        }
+        scanForConflicts();
+    }
+
+    function scanForConflicts() {
+        for (let i = 0; i < 25; i++) {
+            document.getElementById(`cell-${i}`).classList.remove('conflict');
+        }
+
+        for (let index = 0; index < 25; index++) {
+            let note = currentBoard[index];
+            if (note === '') continue;
+
+            const row = Math.floor(index / 5);
+            const col = index % 5;
+            let hasConflict = false;
+
+            for (let j = 0; j < 5; j++) {
+                let targetIdx = row * 5 + j;
+                if (targetIdx !== index && currentBoard[targetIdx] === note) hasConflict = true;
+            }
+
+            for (let i = 0; i < 5; i++) {
+                let targetIdx = i * 5 + col;
+                if (targetIdx !== index && currentBoard[targetIdx] === note) hasConflict = true;
+            }
+
+            if (hasConflict) {
+                document.getElementById(`cell-${index}`).classList.add('conflict');
+            }
+        }
+    }
+
+    function checkFullSymphony() {
+        const msg = document.getElementById('message');
+        
+        if (currentBoard.includes('')) {
+            msg.style.color = '#e67e22';
+            msg.textContent = "The score isn't finished yet!";
+            return;
+        }
+
+        let conflicts = document.querySelectorAll('.conflict');
+        if (conflicts.length > 0) {
+            msg.style.color = '#e74c3c';
+            msg.textContent = "Dissonance! Resolve conflicting notes.";
+            return;
+        }
+
+        const isUnique5 = (arr) => new Set(arr).size === 5;
+
+        for (let i = 0; i < 5; i++) {
+            let row = []; let col = [];
+            for (let j = 0; j < 5; j++) {
+                row.push(currentBoard[i * 5 + j]);
+                col.push(currentBoard[j * 5 + i]);
+            }
+            if (!isUnique5(row) || !isUnique5(col)) {
+                msg.style.color = '#e74c3c';
+                msg.textContent = "Validation error inside rows or columns.";
+                return;
+            }
+        }
+
+        msg.style.color = '#2ecc71';
+        msg.textContent = "🎉 Perfect Harmony! Brilliant Master Symphony!";
+        playSequence(['A', 'B', 'C', 'D', 'E']);
+    }
+
+    function resetPuzzle() { initBoard(true); }
+    function clearAll() { initBoard(false); }
+
+    buildKeyboard();
+    buildTriggers();
+    initBoard(true);
+</script>
+</body>
+</html>
