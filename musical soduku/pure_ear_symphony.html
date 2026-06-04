@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pentatonic Grid Symphony: Clean Edition</title>
+    <title>Pentatonic Grid: Pure Ear Edition</title>
     <style>
         :root {
             --bg-color: #f4f7f6;
@@ -106,10 +106,8 @@
             justify-content: center;
             cursor: pointer;
             user-select: none;
-            font-size: 1.4rem;
-            font-weight: bold;
+            font-size: 1.8rem;
             transition: transform 0.1s, filter 0.2s, background-color 0.3s;
-            position: relative;
         }
 
         .cell:hover { filter: brightness(0.92); }
@@ -118,23 +116,15 @@
         /* Fixed Clue Styles */
         .cell.clue-hint {
             background-color: var(--cell-clue);
-            color: #2c3e50;
             cursor: not-allowed;
+            opacity: 0.8;
         }
         
         .cell.clue-hint:hover { filter: none; }
-        
-        .cell.clue-hint::after {
-            content: "🔒";
-            position: absolute;
-            bottom: 4px;
-            font-size: 0.65rem;
-            opacity: 0.6;
-        }
 
         /* Conflict Styles */
         .cell.conflict {
-            color: var(--conflict-color) !important;
+            background-color: #ffcdd2 !important;
             animation: shake 0.2s ease-in-out;
         }
 
@@ -181,9 +171,9 @@
 </head>
 <body>
 
-    <h1>Pentatonic Symphony</h1>
+    <h1>Pentatonic Symphony: Ear Edition</h1>
     <p>
-        Fill the grid using the notes <strong>A, C, D, E, G</strong>. The gray locked cells are your starting clues. Use the ▶ and ▼ buttons to hear how your rows and columns sound!
+        The ultimate test of relative pitch! No letters, no visual keyboard. Click the 🔒 icons to hear your starting clues, and place notes (🎵) to match the hidden melody.
     </p>
 
     <div class="game-layout">
@@ -234,6 +224,7 @@
         oscillator.type = 'sine';
         oscillator.frequency.setValueAtTime(frequencies[note], audioCtx.currentTime);
         
+        // Soft, bell-like envelope
         gainNode.gain.setValueAtTime(0.25, audioCtx.currentTime);
         gainNode.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + duration);
         
@@ -345,14 +336,18 @@
             const cell = document.createElement('div');
             cell.className = 'cell';
             cell.id = `cell-${index}`;
-            
-            // Restoring the letters to the grid so you can see them!
-            cell.textContent = cellValue; 
 
             if (initialClues[index] !== '') {
                 cell.classList.add('clue-hint');
+                cell.textContent = "🔒";
                 cell.addEventListener('click', () => playNote(initialClues[index]));
             } else {
+                if (cellValue !== '') {
+                    cell.textContent = "🎵";
+                } else {
+                    cell.textContent = "";
+                }
+                
                 cell.addEventListener('click', () => cycleNote(index, cell, 1));
                 cell.addEventListener('contextmenu', (e) => {
                     e.preventDefault();
@@ -374,10 +369,12 @@
         let nextNote = cyclesList[nextIndex];
         
         currentBoard[index] = nextNote;
-        cellElement.textContent = nextNote;
         
         if (nextNote !== '') {
+            cellElement.textContent = "🎵";
             playNote(nextNote);
+        } else {
+            cellElement.textContent = "";
         }
         scanForConflicts();
     }
@@ -447,7 +444,7 @@
         }
 
         msg.style.color = '#2ecc71';
-        msg.textContent = "🎉 Perfect Harmony! Solved flawlessly!";
+        msg.textContent = "🎉 Perfect Harmony! Solved flawlessly by ear!";
         
         // Victory Arpeggio
         playSequence(['A', 'C', 'D', 'E', 'G']);
