@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Audio-Visual Jigsaw Module</title>
+    <title>Audio Waveform Jigsaw Module</title>
     <style>
         body { 
             background: #0f172a; color: #38bdf8; font-family: sans-serif; 
@@ -31,9 +31,9 @@
         }
         
         .btn-audio { background: #38bdf8; color: #0f172a; }
-        .btn-image { background: #a855f7; color: #fff; }
         .btn-record { background: #f59e0b; color: #0f172a; }
         .btn-record.recording { background: #ef4444; color: #fff; animation: pulseRecord 1s infinite; }
+        .btn-shuffle { background: #a855f7; color: #fff; display: none; }
         
         #refBtn { background: #22c55e; color: #fff; display: none; }
         #stopBtn { background: #ef4444; color: #fff; display: none; }
@@ -51,7 +51,7 @@
         }
         #ghost-wave { 
             position: absolute; top: 10px; left: 10px; right: 10px; bottom: 10px;
-            width: calc(100% - 20px); height: calc(100% - 20px); opacity: 0.15; pointer-events: none; 
+            width: calc(100% - 20px); height: calc(100% - 20px); opacity: 0.2; pointer-events: none; 
         }
         #grid { 
             display: grid; 
@@ -59,11 +59,10 @@
             gap: 6px; width: 100%; position: relative; 
         }
         .piece { 
-            background: rgba(51, 65, 85, 0.8); cursor: grab; border-radius: 6px; 
+            background: rgba(30, 41, 59, 0.9); cursor: grab; border-radius: 6px; 
             border: 2px solid #475569; overflow: hidden; aspect-ratio: 1 / 1;
             display: flex; align-items: center; justify-content: center;
             position: relative; touch-action: none; transition: border-color 0.2s, transform 0.1s;
-            background-repeat: no-repeat;
         }
         .piece:active { cursor: grabbing; transform: scale(0.96); }
         .piece.correct { border-color: #0ea5e9; }
@@ -83,7 +82,7 @@
 <body>
 
     <div id="top-bar">
-        <button id="homeBtn" onclick="window.location.href='/Clean-start/index.html'">◀ Home</button>
+        <button id="homeBtn" onclick="window.location.href='../../index.html'">◀ Home</button>
         <div id="grid-controls">
             <button class="stepper-btn" onclick="changeGridSize(-1)">➖</button>
             <span id="grid-size-label">3x3</span>
@@ -96,13 +95,9 @@
             📂 LOAD AUDIO
             <input type="file" id="audioUpload" accept="audio/*" style="display: none;">
         </label>
-
-        <label class="btn btn-image">
-            🖼️ LOAD IMAGE
-            <input type="file" id="imageUpload" accept="image/*" style="display: none;">
-        </label>
         
         <button id="recordBtn" class="btn btn-record">🎤 RECORD</button>
+        <button id="shuffleBtn" class="btn btn-shuffle" onclick="manualShuffle()">🧩 SHUFFLE</button>
         
         <button id="refBtn" class="btn" onclick="playReference()">REF AUDIO</button>
         <button id="stopBtn" class="btn" onclick="stopEverything()">STOP</button>
@@ -113,7 +108,7 @@
         <div id="grid" style="--cols: 3;"></div>
     </div>
 
-    <p id="status">Upload audio and an image to build the puzzle!</p>
+    <p id="status">Upload or record audio to build your waveform puzzle!</p>
 
     <script>
         let audioCtx, mainBuffer;
@@ -127,7 +122,7 @@
         let totalPieces = gridSize * gridSize;
         let pieces = [];
         let draggedIdx = null; 
-        let currentImageSrc = null; // Stores uploaded puzzle background base64 string
+        let waveformImageSrc = null;
 
         function scramblePieces() {
             do {
@@ -135,6 +130,17 @@
             } while (pieces.every((p, i) => p === i) && totalPieces > 1);
         }
         scramblePieces(); 
+
+        function manualShuffle() {
+            if (!mainBuffer) return;
+            stopEverything();
+            scramblePieces();
+            document.getElementById('grid-container').classList.remove('victory');
+            document.getElementById('status').innerText = "Matrix randomized! Match the frequencies.";
+            render();
+            // Optional flavor: play the first item of the new scramble sequence
+            playSlice(pieces[0]);
+        }
 
         function changeGridSize(dir) {
             let newSize = gridSize + dir;
@@ -151,7 +157,7 @@
                 
                 if (mainBuffer) {
                     document.getElementById('status').innerText = `Matrix updated to ${gridSize}x${gridSize}!`;
-                    drawGhostWave();
+                    generateWaveformGridImage();
                 }
                 render();
             }
@@ -174,13 +180,14 @@
                 
                 document.getElementById('refBtn').style.display = 'inline-block';
                 document.getElementById('stopBtn').style.display = 'inline-block';
+                document.getElementById('shuffleBtn').style.display = 'inline-block';
                 
-                status.innerText = "Audio loaded. Match the fragments!";
+                status.innerText = "Audio parsed. Reconstruct the sequential waveform!";
                 
                 scramblePieces();
                 document.getElementById('grid-container').classList.remove('victory');
                 
-                drawGhostWave();
+                generateWaveformGridImage();
                 render();
             } catch (e) {
                 status.innerText = "❌ Error reading audio file!";
@@ -196,17 +203,6 @@
             const reader = new FileReader();
             reader.onload = async function(ev) { await processAudioData(ev.target.result); };
             reader.readAsArrayBuffer(file);
-        });
-
-        document.getElementById('imageUpload').addEventListener('change', function(e) {
-            const file = e.target.files[0];
-            if (!file) return;
-            const reader = new FileReader();
-            reader.onload = function(ev) {
-                currentImageSrc = ev.target.result;
-                render(); // Re-render pieces applying the image map backgrounds
-            };
-            reader.readAsDataURL(file);
         });
 
         document.getElementById('recordBtn').addEventListener('click', async () => {
@@ -296,28 +292,56 @@
             return peaks;
         }
 
-        function drawGhostWave() {
-            const canvas = document.getElementById('ghost-wave');
-            const container = document.getElementById('grid-container');
-            const size = container.clientWidth - 20;
-            canvas.width = size; canvas.height = size;
+        function generateWaveformGridImage() {
+            if (!mainBuffer) return;
+            
+            const canvas = document.createElement('canvas');
+            const size = 600; 
+            canvas.width = size;
+            canvas.height = size;
             const ctx = canvas.getContext('2d');
-            ctx.clearRect(0, 0, size, size);
             
-            if (!mainBuffer || currentImageSrc) return; // Hide background wave guidelines if image exists
-            
-            const totalPoints = size;
+            ctx.fillStyle = '#1e293b';
+            ctx.fillRect(0, 0, size, size);
+
+            const cellSize = size / gridSize;
+            const totalPoints = size * gridSize; 
             const peaks = extractWaveformData(mainBuffer, totalPoints);
-            ctx.strokeStyle = '#38bdf8'; ctx.lineWidth = 1.5; ctx.beginPath();
             
-            for (let x = 0; x < size; x++) {
-                const amp = peaks[x] * (size / gridSize / 2.5); 
-                const row = Math.floor((x / size) * gridSize);
-                const centerY = (row * (size / gridSize)) + (size / gridSize / 2);
-                if (x === 0 || Math.floor(((x-1)/size)*gridSize) !== row) ctx.moveTo(x, centerY);
-                ctx.lineTo(x, centerY - amp);
+            ctx.strokeStyle = '#a855f7'; 
+            ctx.lineWidth = 2.5;
+            ctx.shadowBlur = 4;
+            ctx.shadowColor = '#a855f7';
+            
+            for (let row = 0; row < gridSize; row++) {
+                for (let col = 0; col < gridSize; col++) {
+                    const cellIndex = (row * gridSize) + col;
+                    const startX = col * cellSize;
+                    const centerY = (row * cellSize) + (cellSize / 2);
+                    
+                    ctx.beginPath();
+                    const segmentPoints = size / gridSize;
+                    const segmentStartPeakIdx = cellIndex * segmentPoints;
+
+                    for (let localX = 0; localX < cellSize; localX++) {
+                        const globalX = startX + localX;
+                        const peakIdx = Math.floor(segmentStartPeakIdx + ((localX / cellSize) * segmentPoints));
+                        const amp = (peaks[peakIdx] || 0) * (cellSize / 2.3); 
+                        
+                        if (localX === 0) ctx.moveTo(globalX, centerY);
+                        ctx.lineTo(globalX, centerY - amp);
+                        ctx.lineTo(globalX, centerY + amp);
+                    }
+                    ctx.stroke();
+                }
             }
-            ctx.stroke();
+            
+            waveformImageSrc = canvas.toDataURL();
+
+            const ghostCanvas = document.getElementById('ghost-wave');
+            ghostCanvas.width = size; ghostCanvas.height = size;
+            const gCtx = ghostCanvas.getContext('2d');
+            gCtx.drawImage(canvas, 0, 0);
         }
 
         function render() {
@@ -331,36 +355,13 @@
                 div.className = `piece ${pIdx === i ? 'correct' : ''}`;
                 div.setAttribute('data-index', i);
                 
-                // Calculate original native Row/Col configurations for background image positioning
                 const origCol = pIdx % gridSize;
                 const origRow = Math.floor(pIdx / gridSize);
                 
-                if (currentImageSrc) {
-                    // Turn on background mapping parameters cleanly over standard calculations
-                    div.style.backgroundImage = `url(${currentImageSrc})`;
+                if (waveformImageSrc) {
+                    div.style.backgroundImage = `url(${waveformImageSrc})`;
                     div.style.backgroundSize = `${gridSize * 100}% ${gridSize * 100}%`;
                     div.style.backgroundPosition = `${(origCol / (gridSize - 1)) * 100}% ${(origRow / (gridSize - 1)) * 100}%`;
-                } else {
-                    // FALLBACK: Run typical custom waveform graphics engine if no background picture loaded
-                    div.style.backgroundImage = 'none';
-                    const cvs = document.createElement('canvas');
-                    cvs.width = 120; cvs.height = 120;
-                    div.appendChild(cvs);
-                    const ctx = cvs.getContext('2d');
-                    ctx.strokeStyle = pIdx === i ? '#38bdf8' : '#64748b';
-                    ctx.lineWidth = 3;
-                    
-                    if (mainBuffer) {
-                        const resolution = 120;
-                        const entireWeave = extractWaveformData(mainBuffer, resolution * totalPieces);
-                        const sliceStart = pIdx * resolution;
-                        ctx.beginPath(); ctx.moveTo(0, 60);
-                        for (let x = 0; x < resolution; x++) ctx.lineTo(x, 60 - (entireWeave[sliceStart + x] * 50));
-                        ctx.stroke();
-                        ctx.beginPath(); ctx.moveTo(0, 60);
-                        for (let x = 0; x < resolution; x++) ctx.lineTo(x, 60 + (entireWeave[sliceStart + x] * 50));
-                        ctx.stroke();
-                    }
                 }
 
                 // --- DRAG CONTROLS ---
@@ -398,13 +399,12 @@
             }
 
             if (isSolved && mainBuffer) { 
-                document.getElementById('status').innerText = "🎉 PUZZLE MASTERED!";
+                document.getElementById('status').innerText = "🎉 WAVEFORM DECODED SUCCESSFULLY!";
                 container.classList.add('victory');
                 playReference();
             }
         }
         
-        window.addEventListener('resize', () => drawGhostWave());
         render();
     </script>
 </body>
