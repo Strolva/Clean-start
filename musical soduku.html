@@ -3,19 +3,20 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pentatonic Grid Symphony: Hard Set Piece</title>
+    <title>Pentatonic Grid Symphony: True Scale Edition</title>
     <style>
         :root {
-            --zone-1: #ffdee9;
-            --zone-2: #e0f7fa;
-            --zone-3: #e1bee7;
-            --zone-4: #fff9c4;
-            --zone-5: #c8e6c9;
+            --bg-color: #f4f7f6;
+            --grid-bg: #34495e;
+            --cell-clue: #cfd8dc;
+            --cell-empty: #ffffff;
+            --accent-color: #1abc9c;
+            --conflict-color: #d32f2f;
         }
 
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: #f4f7f6;
+            background: var(--bg-color);
             display: flex;
             flex-direction: column;
             align-items: center;
@@ -69,14 +70,14 @@
             grid-template-columns: repeat(5, 60px);
             grid-template-rows: repeat(5, 60px);
             gap: 4px;
-            background: #34495e;
+            background: var(--grid-bg);
             padding: 6px;
             border-radius: 8px;
             box-shadow: 0 4px 10px rgba(0,0,0,0.15);
         }
 
         .trigger-btn {
-            background: #34495e;
+            background: var(--grid-bg);
             color: #fff;
             border: none;
             border-radius: 4px;
@@ -89,13 +90,13 @@
             justify-content: center;
             transition: background 0.2s, transform 0.1s;
         }
-        .trigger-btn:hover { background: #1abc9c; }
+        .trigger-btn:hover { background: var(--accent-color); }
         .trigger-btn:active { transform: scale(0.9); }
 
         .cell {
             width: 60px;
             height: 60px;
-            background: white;
+            background: var(--cell-empty);
             border-radius: 4px;
             display: flex;
             align-items: center;
@@ -111,22 +112,27 @@
         .cell:hover { filter: brightness(0.92); }
         .cell:active { transform: scale(0.95); }
 
-        /* Emphasized set piece clues */
+        /* Fixed Clue Styles */
         .cell.clue-hint {
-            background-color: #e2e8f0 !important;
-            color: #1e293b;
+            background-color: var(--cell-clue);
+            color: #2c3e50;
+            cursor: not-allowed;
             font-weight: 800;
         }
+        .cell.clue-hint:hover {
+            filter: none;
+        }
         .cell.clue-hint::after {
-            content: "•";
+            content: "🔒";
             position: absolute;
             bottom: 2px;
-            font-size: 0.6rem;
-            color: #64748b;
+            font-size: 0.5rem;
+            opacity: 0.5;
         }
 
+        /* Conflict Styles */
         .cell.conflict {
-            color: #d32f2f !important;
+            color: var(--conflict-color) !important;
             font-weight: 900;
             animation: shake 0.2s ease-in-out;
         }
@@ -137,13 +143,7 @@
             75% { transform: translateX(2px); }
         }
 
-        /* Aesthetics-only layout coloring to segment quadrants easily */
-        .z1 { background-color: var(--zone-1); }
-        .z2 { background-color: var(--zone-2); }
-        .z3 { background-color: var(--zone-3); }
-        .z4 { background-color: var(--zone-4); }
-        .z5 { background-color: var(--zone-5); }
-
+        /* Keyboard Styles */
         .keyboard-container {
             margin-top: 30px;
             display: flex;
@@ -185,7 +185,7 @@
             border-radius: 0 0 3px 3px;
         }
 
-        .piano-key.active-white { background: #1abc9c !important; color: white; }
+        .piano-key.active-white { background: var(--accent-color) !important; color: white; }
         .piano-key.active-black { background: #16a085 !important; }
 
         #controls {
@@ -207,6 +207,8 @@
         }
 
         button:hover { background: #2980b9; }
+        #random-btn { background: #9b59b6; }
+        #random-btn:hover { background: #8e44ad; }
         #check-btn { background: #2ecc71; }
         #check-btn:hover { background: #27ae60; }
 
@@ -222,7 +224,8 @@
 
     <h1>Pentatonic Grid Symphony</h1>
     <p>
-        <strong>Asymmetric Set-Piece Challenge:</strong> The starting layout has been carefully crafted so that standard staircases won't work. Use deduction across rows and columns to find the unique hidden melody!
+        Fill the 5x5 grid using notes from the true <strong>A Minor Pentatonic Scale (A, C, D, E, G)</strong>.<br>
+        🔒 Gray cells are locked clues. Left-click blank squares to cycle forward, right-click to cycle backward. Diagonals are ignored!
     </p>
 
     <div class="game-layout">
@@ -234,32 +237,39 @@
     <div class="keyboard-container" id="piano-keyboard"></div>
 
     <div id="controls">
+        <button id="random-btn" onclick="generateNewPuzzle()">Generate New Puzzle</button>
         <button id="check-btn" onclick="checkFullSymphony()">Check Symphony</button>
-        <button onclick="resetPuzzle()">Reset Clues</button>
-        <button onclick="clearAll()">Clear Board</button>
+        <button onclick="resetToCurrentClues()">Reset Board</button>
     </div>
 
     <div id="message"></div>
 
 <script>
-    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    const frequencies = { 'A': 440.00, 'B': 493.88, 'C': 523.25, 'D': 587.33, 'E': 659.25 };
-    const notes = ['', 'A', 'B', 'C', 'D', 'E'];
+    let audioCtx = null;
+    
+    // Musical Scale Constants: True A Minor Pentatonic (A, C, D, E, G)
+    const frequencies = { 'A': 440.00, 'C': 523.25, 'D': 587.33, 'E': 659.25, 'G': 783.99 };
+    const notesList = ['A', 'C', 'D', 'E', 'G'];
+    const cyclesList = ['', 'A', 'C', 'D', 'E', 'G'];
 
-    // NEW ASYMMETRIC SUDOKU SET-PIECE
-    // Hand-crafted layout with 11 clues designed to stop "staircase shifting" cheats.
-    const boardLayout = [
-        { zone: 1, initial: 'A' }, { zone: 1, initial: 'B' }, { zone: 2, initial: ''  }, { zone: 2, initial: ''  }, { zone: 2, initial: 'E' },
-        { zone: 1, initial: ''  }, { zone: 1, initial: ''  }, { zone: 3, initial: 'D' }, { zone: 2, initial: ''  }, { zone: 2, initial: ''  },
-        { zone: 1, initial: ''  }, { zone: 3, initial: 'E' }, { zone: 3, initial: ''  }, { zone: 3, initial: 'A' }, { zone: 5, initial: ''  },
-        { zone: 4, initial: 'C' }, { zone: 4, initial: ''  }, { zone: 3, initial: ''  }, { zone: 5, initial: ''  }, { zone: 5, initial: 'D' },
-        { zone: 4, initial: ''  }, { zone: 4, initial: 'D' }, { zone: 4, initial: ''  }, { zone: 5, initial: 'E' }, { zone: 5, initial: ''  }
-    ];
+    let currentBoard = Array(25).fill('');
+    let initialClues = Array(25).fill('');
 
-    let currentBoard = [];
+    function initAudio() {
+        if (!audioCtx) {
+            try {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            } catch (e) {
+                console.error("Web Audio initialization failed:", e);
+            }
+        }
+    }
 
     function playNote(note, duration = 0.5) {
         if (!note || !frequencies[note]) return;
+        initAudio();
+        if (!audioCtx) return;
+        
         if (audioCtx.state === 'suspended') audioCtx.resume();
 
         const oscillator = audioCtx.createOscillator();
@@ -303,10 +313,59 @@
         });
     }
 
+    // Mathematical puzzle generation
+    function generateValidGrid() {
+        let grid = Array(25).fill('');
+        
+        function isValidPlacement(g, row, col, note) {
+            for (let i = 0; i < 5; i++) {
+                if (g[row * 5 + i] === note) return false;
+                if (g[i * 5 + col] === note) return false;
+            }
+            return true;
+        }
+
+        function solve(idx) {
+            if (idx === 25) return true;
+            let row = Math.floor(idx / 5);
+            let col = idx % 5;
+            
+            let shuffled = [...notesList].sort(() => Math.random() - 0.5);
+            
+            for (let note of shuffled) {
+                if (isValidPlacement(grid, row, col, note)) {
+                    grid[idx] = note;
+                    if (solve(idx + 1)) return true;
+                    grid[idx] = '';
+                }
+            }
+            return false;
+        }
+
+        solve(0);
+        return grid;
+    }
+
+    function generateNewPuzzle() {
+        const perfectSolution = generateValidGrid();
+        initialClues = Array(25).fill('');
+        
+        let indices = [];
+        while (indices.length < 11) {
+            let r = Math.floor(Math.random() * 25);
+            if (!indices.includes(r)) indices.push(r);
+        }
+
+        indices.forEach(idx => {
+            initialClues[idx] = perfectSolution[idx];
+        });
+
+        resetToCurrentClues();
+    }
+
     function buildKeyboard() {
         const keyboard = document.getElementById('piano-keyboard');
         keyboard.innerHTML = '';
-        
         const layout = [
             { note: 'A', black: false }, { note: 'A#', black: true },
             { note: 'B', black: false }, { note: 'C', black: false },
@@ -315,7 +374,6 @@
             { note: 'F', black: false },  { note: 'F#', black: true },
             { note: 'G', black: false },  { note: 'G#', black: true }
         ];
-
         layout.forEach(k => {
             const el = document.createElement('div');
             el.className = `piano-key ${k.black ? 'black' : ''}`;
@@ -355,42 +413,41 @@
         }
     }
 
-    function initBoard(loadClues) {
+    function resetToCurrentClues() {
         const container = document.getElementById('sudoku-container');
         container.innerHTML = '';
-        currentBoard = [];
+        currentBoard = [...initialClues];
 
-        boardLayout.forEach((cellData, index) => {
-            const initialVal = loadClues ? cellData.initial : '';
-            currentBoard.push(initialVal);
-            
+        for (let index = 0; index < 25; index++) {
+            const cellValue = currentBoard[index];
             const cell = document.createElement('div');
-            cell.classList.add('cell', `z${cellData.zone}`);
+            cell.className = 'cell';
             cell.id = `cell-${index}`;
-            cell.textContent = initialVal;
+            cell.textContent = cellValue;
 
-            if (cellData.initial !== '' && loadClues) {
+            if (initialClues[index] !== '') {
                 cell.classList.add('clue-hint');
+                cell.addEventListener('click', () => playNote(initialClues[index]));
+            } else {
+                cell.addEventListener('click', () => cycleNote(index, cell, 1));
+                cell.addEventListener('contextmenu', (e) => {
+                    e.preventDefault();
+                    cycleNote(index, cell, -1);
+                });
             }
 
-            cell.addEventListener('click', () => cycleNote(index, cell, 1));
-            cell.addEventListener('contextmenu', (e) => {
-                e.preventDefault();
-                cycleNote(index, cell, -1);
-            });
-
             container.appendChild(cell);
-        });
+        }
         document.getElementById('message').textContent = '';
         scanForConflicts();
     }
 
     function cycleNote(index, cellElement, direction) {
         let currentNote = currentBoard[index];
-        let currentIndex = notes.indexOf(currentNote);
+        let currentIndex = cyclesList.indexOf(currentNote);
         
-        let nextIndex = (currentIndex + direction + notes.length) % notes.length;
-        let nextNote = notes[nextIndex];
+        let nextIndex = (currentIndex + direction + cyclesList.length) % cyclesList.length;
+        let nextNote = cyclesList[nextIndex];
         
         currentBoard[index] = nextNote;
         cellElement.textContent = nextNote;
@@ -403,7 +460,8 @@
 
     function scanForConflicts() {
         for (let i = 0; i < 25; i++) {
-            document.getElementById(`cell-${i}`).classList.remove('conflict');
+            const el = document.getElementById(`cell-${i}`);
+            if (el) el.classList.remove('conflict');
         }
 
         for (let index = 0; index < 25; index++) {
@@ -425,7 +483,8 @@
             }
 
             if (hasConflict) {
-                document.getElementById(`cell-${index}`).classList.add('conflict');
+                const el = document.getElementById(`cell-${index}`);
+                if (el) el.classList.add('conflict');
             }
         }
     }
@@ -435,7 +494,7 @@
         
         if (currentBoard.includes('')) {
             msg.style.color = '#e67e22';
-            msg.textContent = "The score isn't finished yet!";
+            msg.textContent = "The board isn't completely filled yet!";
             return;
         }
 
@@ -462,16 +521,15 @@
         }
 
         msg.style.color = '#2ecc71';
-        msg.textContent = "🎉 Perfect Harmony! Brilliant Master Symphony!";
-        playSequence(['A', 'B', 'C', 'D', 'E']);
+        msg.textContent = "🎉 Perfect Harmony! Solved flawlessly!";
+        playSequence(['A', 'C', 'D', 'E', 'G']);
     }
 
-    function resetPuzzle() { initBoard(true); }
-    function clearAll() { initBoard(false); }
-
-    buildKeyboard();
-    buildTriggers();
-    initBoard(true);
+    window.addEventListener('DOMContentLoaded', () => {
+        buildKeyboard();
+        buildTriggers();
+        generateNewPuzzle();
+    });
 </script>
 </body>
 </html>
