@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Audio Waveform Slider Module</title>
+    <style>
+        body { 
+            background: #0f172a; color: #38bdf8; font-family: sans-serif; 
+            display: flex; flex-direction: column; align-items: center; justify-content: flex-start; 
+            min-height: 100vh; margin: 0; padding: 20px 10px; overflow-x: hidden;
+            -webkit-user-select: none; user-select: none;
+        }
+
+        #top-bar {
+            width: 100%; max-width: 400px; display: flex; justify-content: space-between; 
+            align-items: center; margin-bottom: 20px;
+        }
+        #homeBtn { background: #334155; color: #fff; padding: 10px 15px; font-size: 0.9rem; border: none; border-radius: 8px; font-weight: bold; cursor: pointer;}
+        
+        #grid-controls { display: flex; align-items: center; gap: 10px; background: #1e293b; padding: 5px; border-radius: 8px;}
+        .stepper-btn { background: #334155; color: white; border: none; border-radius: 6px; padding: 8px 12px; font-size: 1rem; cursor: pointer; touch-action: manipulation; }
+        .stepper-btn:active { background: #475569; }
+        #grid-size-label { font-weight: bold; width: 40px; text-align: center; color: #fff; }
+
+        #controls { margin-bottom: 20px; display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; width: 100%; max-width: 420px;}
+        .btn { 
+            padding: 10px 14px; border-radius: 8px; border: none; font-size: 0.85rem;
+            font-weight: bold; cursor: pointer; transition: 0.2s; 
+            display: flex; align-items: center; justify-content: center;
+        }
+        
+        .btn-audio { background: #38bdf8; color: #0f172a; }
+        .btn-record { background: #f59e0b; color: #0f172a; }
+        .btn-record.recording { background: #ef4444; color: #fff; animation: pulseRecord 1s infinite; }
+        .btn-random { background: #6366f1; color: #fff; display: none; }
+        
+        #refBtn { background: #22c55e; color: #fff; display: none; }
+        #stopBtn { background: #ef4444; color: #fff; display: none; }
+
+        @keyframes pulseRecord {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+
+        #grid-container { 
+            position: relative; padding: 10px; background: #1e293b; 
+            border-radius: 12px; transition: all 0.5s ease;
+            width: 100%; max-width: 400px; box-sizing: border-box;
+        }
+        #ghost-wave { 
+            position: absolute; top: 10px; left: 10px; right: 10px; bottom: 10px;
+            width: calc(100% - 20px); height: calc(100% - 20px); opacity: 0.2; pointer-events: none; 
+        }
+        #grid { 
+            display: grid; 
+            grid-template-columns: repeat(var(--cols, 3), 1fr); 
+            gap: 6px; width: 100%; position: relative; 
+        }
+        .piece { 
+            background: rgba(30, 41, 59, 0.9); cursor: pointer; border-radius: 6px; 
+            border: 2px solid #475569; overflow: hidden; aspect-ratio: 1 / 1;
+            display: flex; align-items: center; justify-content: center;
+            position: relative; touch-action: manipulation; transition: border-color 0.2s, transform 0.1s;
+        }
+        .piece:active { transform: scale(0.96); }
+        .piece.correct { border-color: #0ea5e9; }
+        
+        /* Style for the true blank/missing slide slot */
+        .piece.empty {
+            background: #0f172a !important;
+            border: 2px dashed #334155;
+            cursor: default;
+            box-shadow: inset 0px 0px 10px rgba(0,0,0,0.5);
+        }
+        
+        canvas { width: 100%; height: 100%; pointer-events: none; display: block; }
+        #status { margin-top: 20px; font-weight: bold; min-height: 20px; text-align: center; font-size: 0.9rem;}
+
+        @keyframes pulse {
+            0% { transform: scale(1); box-shadow: 0 0 0px #38bdf8; }
+            50% { transform: scale(1.02); box-shadow: 0 0 25px #38bdf8; }
+            100% { transform: scale(1); box-shadow: 0 0 0px #38bdf8; }
+        }
+        .victory { animation: pulse 2s infinite ease-in-out; border: 2px solid #22c55e; }
+    </style>
+</head>
+<body>
+
+    <div id="top-bar">
+        <button id="homeBtn" onclick="window.location.href='index.html'">◀ Home</button>
+        <div id="grid-controls">
+            <button class="stepper-btn" onclick="changeGridSize(-1)">➖</button>
+            <span id="grid-size-label">3x3</span>
+            <button class="stepper-btn" onclick="changeGridSize(1)">➕</button>
+        </div>
+    </div>
+
+    <div id="controls">
+        <label class="btn btn-audio">
+            📂 LOAD AUDIO
+            <input type="file" id="audioUpload" accept="audio/*" style="display: none;">
+        </label>
+        
+        <button id="recordBtn" class="btn btn-record">🎤 RECORD</button>
+        
+        <button id="randomBtn" class="btn btn-random">🔀 SHUFFLE</button>
+        
+        <button id="refBtn" class="btn" onclick="playReference()">REF AUDIO</button>
+        <button id="stopBtn" class="btn" onclick="stopEverything()">STOP</button>
+    </div>
+
+    <div id="grid-container">
+        <canvas id="ghost-wave"></canvas>
+        <div id="grid" style="--cols: 3;"></div>
+    </div>
+
+    <p id="status">Upload or record audio to build your sliding waveform puzzle!</p>
+
+    <script>
+        let audioCtx, mainBuffer;
+        let activeSources = []; 
+        
+        let mediaRecorder;
+        let audioChunks = [];
+        let isRecording = false;
+        
+        let gridSize = 3; 
+        let totalPieces = gridSize * gridSize;
+        let pieces = [];
+        let waveformImageSrc = null;
+
+        // Valid random walk algorithm to guarantee solvability
+        function scramblePieces() {
+            pieces = Array.from({length: totalPieces}, (_, i) => i);
+            let emptyIdx = totalPieces - 1; 
+            
+            for (let i = 0; i < 200; i++) {
+                let row = Math.floor(emptyIdx / gridSize);
+                let col = emptyIdx % gridSize;
+                let validMoves = [];
+
+                if (row > 0) validMoves.push(emptyIdx - gridSize);    
+                if (row < gridSize - 1) validMoves.push(emptyIdx + gridSize); 
+                if (col > 0) validMoves.push(emptyIdx - 1);       
+                if (col < gridSize - 1) validMoves.push(emptyIdx + 1); 
+
+                let randomMove = validMoves[Math.floor(Math.random() * validMoves.length)];
+                
+                [pieces[emptyIdx], pieces[randomMove]] = [pieces[randomMove], pieces[emptyIdx]];
+                emptyIdx = randomMove;
+            }
+
+            if (pieces.every((p, i) => p === i)) {
+                scramblePieces();
+            }
+        }
+        scramblePieces(); 
+
+        function changeGridSize(dir) {
+            let newSize = gridSize + dir;
+            if (newSize >= 3 && newSize <= 5) {
+                gridSize = newSize;
+                totalPieces = gridSize * gridSize;
+                
+                document.getElementById('grid-size-label').innerText = `${gridSize}x${gridSize}`;
+                document.getElementById('grid').style.setProperty('--cols', gridSize);
+                
+                scramblePieces();
+                stopEverything();
+                document.getElementById('grid-container').classList.remove('victory');
+                
+                if (mainBuffer) {
+                    document.getElementById('status').innerText = `Matrix updated to ${gridSize}x${gridSize}!`;
+                    generateWaveformGridImage();
+                }
+                render();
+            }
+        }
+
+        // --- SHUFFLE BUTTON HANDLER ---
+        document.getElementById('randomBtn').addEventListener('click', () => {
+            if (!mainBuffer) return;
+            scramblePieces();
+            document.getElementById('grid-container').classList.remove('victory');
+            document.getElementById('status').innerText = "Matrix scrambled! Good luck.";
+            render();
+        });
+
+        function initAudioCtx() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+        }
+
+        async function processAudioData(arrayBuffer) {
+            const status = document.getElementById('status');
+            status.innerText = "Decoding Audio Framework...";
+            try {
+                mainBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+                
+                document.getElementById('refBtn').style.display = 'inline-block';
+                document.getElementById('stopBtn').style.display = 'inline-block';
+                document.getElementById('randomBtn').style.display = 'inline-block';
+                
+                status.innerText = "Audio parsed. Click or tap blocks adjacent to the dark gap to slide them!";
+                
+                scramblePieces();
+                document.getElementById('grid-container').classList.remove('victory');
+                
+                generateWaveformGridImage();
+                render();
+            } catch (e) {
+                status.innerText = "❌ Error reading audio file!";
+                console.error(e);
+            }
+        }
+
+        document.getElementById('audioUpload').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            initAudioCtx();
+            const reader = new FileReader();
+            reader.onload = async function(ev) { await processAudioData(ev.target.result); };
+            reader.readAsArrayBuffer(file);
+        });
+
+        document.getElementById('recordBtn').addEventListener('click', async () => {
+            const recordBtn = document.getElementById('recordBtn');
+            const status = document.getElementById('status');
+
+            if (!isRecording) {
+                try {
+                    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                    mediaRecorder = new MediaRecorder(stream);
+                    audioChunks = [];
+                    mediaRecorder.ondataavailable = e => { if (e.data.size > 0) audioChunks.push(e.data); };
+                    mediaRecorder.onstop = async () => {
+                        initAudioCtx();
+                        const audioBlob = new Blob(audioChunks);
+                        const arrayBuffer = await audioBlob.arrayBuffer();
+                        await processAudioData(arrayBuffer);
+                    };
+                    mediaRecorder.start();
+                    isRecording = true;
+                    recordBtn.innerText = "🛑 STOP";
+                    recordBtn.classList.add('recording');
+                    status.innerText = "🔴 Capturing mic feed...";
+                } catch (err) {
+                    status.innerText = "❌ Mic feed dropped.";
+                    console.error(err);
+                }
+            } else {
+                mediaRecorder.stop();
+                isRecording = false;
+                recordBtn.innerText = "🎤 RECORD";
+                recordBtn.classList.remove('recording');
+            }
+        });
+
+        function stopEverything() {
+            activeSources.forEach(s => { try { s.stop(); } catch(e) {} });
+            activeSources = [];
+        }
+
+        function playSlice(idx) {
+            if (!mainBuffer) return;
+            if (idx === totalPieces - 1) return;
+
+            stopEverything(); 
+            const source = audioCtx.createBufferSource();
+            const gainNode = audioCtx.createGain();
+            source.buffer = mainBuffer;
+            
+            const sliceWidth = mainBuffer.duration / totalPieces;
+            const startOffset = idx * sliceWidth;
+            const playDuration = sliceWidth;
+
+            source.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+            
+            gainNode.gain.setValueAtTime(0.001, audioCtx.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(1, audioCtx.currentTime + 0.01);
+            gainNode.gain.setValueAtTime(1, audioCtx.currentTime + playDuration - 0.01);
+            gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + playDuration);
+            
+            source.start(0, startOffset, playDuration);
+            activeSources.push(source);
+        }
+
+        function playReference() {
+            if (!mainBuffer) return;
+            stopEverything();
+            const source = audioCtx.createBufferSource();
+            source.buffer = mainBuffer;
+            source.connect(audioCtx.destination);
+            source.start(0);
+            activeSources.push(source);
+        }
+
+        function extractWaveformData(buffer, pointsNeeded) {
+            if (!buffer) return new Float32Array(pointsNeeded).fill(0);
+            const rawData = buffer.getChannelData(0);
+            const step = Math.floor(rawData.length / pointsNeeded);
+            const peaks = new Float32Array(pointsNeeded);
+            for (let i = 0; i < pointsNeeded; i++) {
+                let max = 0; let start = i * step;
+                for (let j = 0; j < step; j++) {
+                    let val = Math.abs(rawData[start + j] || 0);
+                    if (val > max) max = val;
+                }
+                peaks[i] = max;
+            }
+            return peaks;
+        }
+
+        function generateWaveformGridImage() {
+            if (!mainBuffer) return;
+            
+            const canvas = document.createElement('canvas');
+            const size = 600; 
+            canvas.width = size;
+            canvas.height = size;
+            const ctx = canvas.getContext('2d');
+            
+            ctx.fillStyle = '#1e293b';
+            ctx.fillRect(0, 0, size, size);
+            
+            const cellSize = size / gridSize;
+            const totalPoints = size * gridSize; 
+            const peaks = extractWaveformData(mainBuffer, totalPoints);
+            
+            ctx.strokeStyle = '#a855f7'; 
+            ctx.lineWidth = 2.5;
+            ctx.shadowBlur = 6;
+            ctx.shadowColor = ctx.strokeStyle;
+            
+            for (let row = 0; row < gridSize; row++) {
+                for (let col = 0; col < gridSize; col++) {
+                    const cellIndex = (row * gridSize) + col;
+                    
+                    if (cellIndex === totalPieces - 1) continue;
+
+                    const startX = col * cellSize;
+                    const centerY = (row * cellSize) + (cellSize / 2);
+                    
+                    ctx.beginPath();
+                    const segmentPoints = size / gridSize;
+                    const segmentStartPeakIdx = cellIndex * segmentPoints;
+
+                    for (let localX = 0; localX < cellSize; localX++) {
+                        const globalX = startX + localX;
+                        const peakIdx = Math.floor(segmentStartPeakIdx + ((localX / cellSize) * segmentPoints));
+                        const amp = (peaks[peakIdx] || 0) * (cellSize / 2.3); 
+                        
+                        if (localX === 0) ctx.moveTo(globalX, centerY);
+                        ctx.lineTo(globalX, centerY - amp);
+                        ctx.lineTo(globalX, centerY + amp);
+                    }
+                    ctx.stroke();
+                }
+            }
+            
+            waveformImageSrc = canvas.toDataURL();
+
+            const ghostCanvas = document.getElementById('ghost-wave');
+            ghostCanvas.width = size; ghostCanvas.height = size;
+            const gCtx = ghostCanvas.getContext('2d');
+            gCtx.drawImage(canvas, 0, 0);
+        }
+
+        function render() {
+            const grid = document.getElementById('grid');
+            const container = document.getElementById('grid-container');
+            grid.innerHTML = '';
+            
+            const isSolved = pieces.every((p, i) => p === i);
+            const blankValue = totalPieces - 1; 
+
+            pieces.forEach((pIdx, i) => {
+                const div = document.createElement('div');
+                div.setAttribute('data-index', i);
+                
+                if (pIdx === blankValue && !isSolved && mainBuffer) {
+                    div.className = 'piece empty';
+                } else {
+                    div.className = `piece ${pIdx === i ? 'correct' : ''}`;
+                    
+                    const origCol = pIdx % gridSize;
+                    const origRow = Math.floor(pIdx / gridSize);
+                    
+                    if (waveformImageSrc) {
+                        div.style.backgroundImage = `url(${waveformImageSrc})`;
+                        div.style.backgroundSize = `${gridSize * 100}% ${gridSize * 100}%`;
+                        div.style.backgroundPosition = `${(origCol / (gridSize - 1)) * 100}% ${(origRow / (gridSize - 1)) * 100}%`;
+                    }
+                }
+
+                const movePiece = (e) => {
+                    if (e) e.preventDefault();
+                    if (!mainBuffer || isSolved) return;
+                    
+                    const blankCurrentIdx = pieces.indexOf(blankValue);
+                    
+                    const currentPercentRow = Math.floor(i / gridSize);
+                    const currentPercentCol = i % gridSize;
+                    const blankPercentRow = Math.floor(blankCurrentIdx / gridSize);
+                    const blankPercentCol = blankCurrentIdx % gridSize;
+
+                    const rowDiff = Math.abs(currentPercentRow - blankPercentRow);
+                    const colDiff = Math.abs(currentPercentCol - blankPercentCol);
+
+                    if ((rowDiff === 1 && colDiff === 0) || (rowDiff === 0 && colDiff === 1)) {
+                        [pieces[i], pieces[blankCurrentIdx]] = [pieces[blankCurrentIdx], pieces[i]];
+                        playSlice(pIdx);
+                        render();
+                    }
+                };
+
+                div.addEventListener('click', movePiece);
+                div.addEventListener('touchstart', movePiece, {passive: false});
+
+                grid.appendChild(div);
+            });
+
+            if (isSolved && mainBuffer) { 
+                document.getElementById('status').innerText = "🎉 PUZZLE SOLVED SUCCESSFULLY!";
+                container.classList.add('victory');
+                playReference();
+            }
+        }
+        
+        render();
+    </script>
+</body>
+</html>
