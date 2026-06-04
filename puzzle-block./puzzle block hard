@@ -79,7 +79,7 @@
 <body>
 
     <div id="top-bar">
-        <button id="homeBtn" onclick="window.location.href='../../index.html'">◀ Home</button>
+        <button id="homeBtn" onclick="window.location.href='/Clean-start/index.html'">◀ Home</button>
         <div id="grid-controls">
             <button class="stepper-btn" onclick="changeGridSize(-1)">➖</button>
             <span id="grid-size-label">3x3</span>
