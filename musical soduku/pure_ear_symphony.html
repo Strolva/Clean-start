@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pentatonic Grid Symphony: Pure Ear Edition</title>
+    <title>Pentatonic Grid: Pure Ear</title>
     <style>
         :root {
             --bg-color: #f4f7f6;
@@ -27,13 +27,14 @@
         h1 {
             margin-bottom: 5px;
             color: #2c3e50;
+            text-align: center;
         }
 
         p {
-            margin-bottom: 20px;
+            margin-bottom: 25px;
             text-align: center;
             max-width: 550px;
-            line-height: 1.4;
+            line-height: 1.5;
         }
 
         .game-layout {
@@ -74,7 +75,7 @@
             background: var(--grid-bg);
             padding: 6px;
             border-radius: 8px;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
         }
 
         .trigger-btn {
@@ -91,8 +92,14 @@
             justify-content: center;
             transition: background 0.2s, transform 0.1s;
         }
-        .trigger-btn:hover { background: var(--accent-color); }
-        .trigger-btn:active { transform: scale(0.9); }
+        
+        .trigger-btn:hover { 
+            background: var(--accent-color); 
+        }
+        
+        .trigger-btn:active { 
+            transform: scale(0.9); 
+        }
 
         .cell {
             width: 60px;
@@ -116,9 +123,11 @@
             background-color: var(--cell-clue);
             cursor: not-allowed;
         }
+        
         .cell.clue-hint:hover {
             filter: none;
         }
+        
         .cell.clue-hint::after {
             content: "🔒";
             position: absolute;
@@ -130,7 +139,7 @@
         /* User Note Indicator */
         .cell.has-note::after {
             content: "🎵";
-            font-size: 0.75rem;
+            font-size: 0.85rem;
             opacity: 0.7;
         }
 
@@ -150,10 +159,12 @@
             margin-top: 15px;
             display: flex;
             gap: 15px;
+            flex-wrap: wrap;
+            justify-content: center;
         }
 
         button {
-            padding: 10px 20px;
+            padding: 12px 20px;
             font-size: 1rem;
             font-weight: bold;
             border: none;
@@ -162,6 +173,7 @@
             background: #3498db;
             color: white;
             transition: background 0.2s;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }
 
         button:hover { background: #2980b9; }
@@ -171,7 +183,7 @@
         #check-btn:hover { background: #27ae60; }
 
         #message {
-            margin-top: 15px;
+            margin-top: 20px;
             font-weight: bold;
             font-size: 1.2rem;
             height: 30px;
@@ -180,9 +192,9 @@
 </head>
 <body>
 
-    <h1>Pentatonic Grid Symphony: Pure Ear Edition</h1>
+    <h1>Pentatonic Symphony: Ear Edition</h1>
     <p>
-        The ultimate test of relative pitch. No letters, no visual layout keys. Listen to the 5 hidden tones, identify row/column conflicts, and match the melody purely by ear.
+        The ultimate test of relative pitch! No letters, no visual keyboard. Listen to the 5 hidden tones, look out for row/column conflicts, and match the melody purely by ear.
     </p>
 
     <div class="game-layout">
@@ -202,6 +214,7 @@
 <script>
     let audioCtx = null;
     
+    // A Minor Pentatonic Frequencies
     const frequencies = { 'A': 440.00, 'C': 523.25, 'D': 587.33, 'E': 659.25, 'G': 783.99 };
     const notesList = ['A', 'C', 'D', 'E', 'G'];
     const cyclesList = ['', 'A', 'C', 'D', 'E', 'G'];
@@ -232,6 +245,7 @@
         oscillator.type = 'sine';
         oscillator.frequency.setValueAtTime(frequencies[note], audioCtx.currentTime);
         
+        // Soft, bell-like envelope
         gainNode.gain.setValueAtTime(0.25, audioCtx.currentTime);
         gainNode.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + duration);
         
@@ -242,7 +256,6 @@
         oscillator.stop(audioCtx.currentTime + duration);
     }
 
-    // Sequence players for arrow button triggers
     function playSequence(noteArray) {
         let delay = 0;
         noteArray.forEach(note => {
@@ -253,6 +266,7 @@
         });
     }
 
+    // Generator Algorithm
     function generateValidGrid() {
         let grid = Array(25).fill('');
         
@@ -309,6 +323,7 @@
         sideTriggers.innerHTML = '';
 
         for (let i = 0; i < 5; i++) {
+            // Column Triggers
             const colBtn = document.createElement('button');
             colBtn.className = 'trigger-btn';
             colBtn.textContent = '▼';
@@ -319,6 +334,7 @@
             });
             topTriggers.appendChild(colBtn);
 
+            // Row Triggers
             const rowBtn = document.createElement('button');
             rowBtn.className = 'trigger-btn';
             rowBtn.textContent = '▶';
@@ -341,116 +357,10 @@
             const cell = document.createElement('div');
             cell.className = 'cell';
             cell.id = `cell-${index}`;
+            
+            // Absolutely NO text content for pure ear training
             cell.textContent = ""; 
 
             if (initialClues[index] !== '') {
                 cell.classList.add('clue-hint');
-                cell.addEventListener('click', () => playNote(initialClues[index]));
-            } else {
-                if (cellValue !== '') cell.classList.add('has-note');
-                
-                cell.addEventListener('click', () => cycleNote(index, cell, 1));
-                cell.addEventListener('contextmenu', (e) => {
-                    e.preventDefault();
-                    cycleNote(index, cell, -1);
-                });
-            }
-
-            container.appendChild(cell);
-        }
-        document.getElementById('message').textContent = '';
-        scanForConflicts();
-    }
-
-    function cycleNote(index, cellElement, direction) {
-        let currentNote = currentBoard[index];
-        let currentIndex = cyclesList.indexOf(currentNote);
-        
-        let nextIndex = (currentIndex + direction + cyclesList.length) % cyclesList.length;
-        let nextNote = cyclesList[nextIndex];
-        
-        currentBoard[index] = nextNote;
-        
-        if (nextNote !== '') {
-            cellElement.classList.add('has-note');
-            playNote(nextNote);
-        } else {
-            cellElement.classList.remove('has-note');
-        }
-        scanForConflicts();
-    }
-
-    function scanForConflicts() {
-        for (let i = 0; i < 25; i++) {
-            const el = document.getElementById(`cell-${i}`);
-            if (el) el.classList.remove('conflict');
-        }
-
-        for (let index = 0; index < 25; index++) {
-            let note = currentBoard[index];
-            if (note === '') continue;
-
-            const row = Math.floor(index / 5);
-            const col = index % 5;
-            let hasConflict = false;
-
-            for (let j = 0; j < 5; j++) {
-                let targetIdx = row * 5 + j;
-                if (targetIdx !== index && currentBoard[targetIdx] === note) hasConflict = true;
-            }
-
-            for (let i = 0; i < 5; i++) {
-                let targetIdx = i * 5 + col;
-                if (targetIdx !== index && currentBoard[targetIdx] === note) hasConflict = true;
-            }
-
-            if (hasConflict) {
-                const el = document.getElementById(`cell-${index}`);
-                if (el) el.classList.add('conflict');
-            }
-        }
-    }
-
-    function checkFullSymphony() {
-        const msg = document.getElementById('message');
-        
-        if (currentBoard.includes('')) {
-            msg.style.color = '#e67e22';
-            msg.textContent = "The board isn't completely filled yet!";
-            return;
-        }
-
-        let conflicts = document.querySelectorAll('.conflict');
-        if (conflicts.length > 0) {
-            msg.style.color = '#e74c3c';
-            msg.textContent = "Dissonance! Resolve conflicting notes.";
-            return;
-        }
-
-        const isUnique5 = (arr) => new Set(arr).size === 5;
-
-        for (let i = 0; i < 5; i++) {
-            let row = []; let col = [];
-            for (let j = 0; j < 5; j++) {
-                row.push(currentBoard[i * 5 + j]);
-                col.push(currentBoard[j * 5 + i]);
-            }
-            if (!isUnique5(row) || !isUnique5(col)) {
-                msg.style.color = '#e74c3c';
-                msg.textContent = "Validation error inside rows or columns.";
-                return;
-            }
-        }
-
-        msg.style.color = '#2ecc71';
-        msg.textContent = "🎉 Perfect Harmony! Solved flawlessly by ear!";
-        playSequence(['A', 'C', 'D', 'E', 'G']);
-    }
-
-    window.addEventListener('DOMContentLoaded', () => {
-        buildTriggers();
-        generateNewPuzzle();
-    });
-</script>
-</body>
-</html>
+                cell.addEventListener('click',
