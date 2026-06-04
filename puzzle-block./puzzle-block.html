@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Audio Waveform Jigsaw Module</title>
+    <title>Audio-Visual Jigsaw Module</title>
     <style>
         body { 
             background: #0f172a; color: #38bdf8; font-family: sans-serif; 
@@ -31,9 +31,10 @@
         }
         
         .btn-audio { background: #38bdf8; color: #0f172a; }
+        .btn-image { background: #a855f7; color: #fff; }
         .btn-record { background: #f59e0b; color: #0f172a; }
         .btn-record.recording { background: #ef4444; color: #fff; animation: pulseRecord 1s infinite; }
-        .btn-shuffle { background: #a855f7; color: #fff; display: none; }
+        .btn-shuffle { background: #6366f1; color: #fff; display: none; }
         
         #refBtn { background: #22c55e; color: #fff; display: none; }
         #stopBtn { background: #ef4444; color: #fff; display: none; }
@@ -95,6 +96,11 @@
             📂 LOAD AUDIO
             <input type="file" id="audioUpload" accept="audio/*" style="display: none;">
         </label>
+
+        <label class="btn btn-image">
+            🖼️ LOAD IMAGE
+            <input type="file" id="imageUpload" accept="image/*" style="display: none;">
+        </label>
         
         <button id="recordBtn" class="btn btn-record">🎤 RECORD</button>
         <button id="shuffleBtn" class="btn btn-shuffle" onclick="manualShuffle()">🧩 SHUFFLE</button>
@@ -108,7 +114,7 @@
         <div id="grid" style="--cols: 3;"></div>
     </div>
 
-    <p id="status">Upload or record audio to build your waveform puzzle!</p>
+    <p id="status">Upload audio and an image to build the puzzle!</p>
 
     <script>
         let audioCtx, mainBuffer;
@@ -122,7 +128,9 @@
         let totalPieces = gridSize * gridSize;
         let pieces = [];
         let draggedIdx = null; 
-        let waveformImageSrc = null;
+        
+        let waveformImageSrc = null; // Generated waveform data
+        let uploadedImageSrc = null; // User uploaded image data
 
         function scramblePieces() {
             do {
@@ -132,14 +140,11 @@
         scramblePieces(); 
 
         function manualShuffle() {
-            if (!mainBuffer) return;
-            stopEverything();
             scramblePieces();
             document.getElementById('grid-container').classList.remove('victory');
             document.getElementById('status').innerText = "Matrix randomized! Match the frequencies.";
             render();
-            // Optional flavor: play the first item of the new scramble sequence
-            playSlice(pieces[0]);
+            if (mainBuffer) playSlice(pieces[0]);
         }
 
         function changeGridSize(dir) {
@@ -159,6 +164,7 @@
                     document.getElementById('status').innerText = `Matrix updated to ${gridSize}x${gridSize}!`;
                     generateWaveformGridImage();
                 }
+                updateGhostCanvas();
                 render();
             }
         }
@@ -182,12 +188,13 @@
                 document.getElementById('stopBtn').style.display = 'inline-block';
                 document.getElementById('shuffleBtn').style.display = 'inline-block';
                 
-                status.innerText = "Audio parsed. Reconstruct the sequential waveform!";
+                status.innerText = "Audio loaded. Match the fragments!";
                 
                 scramblePieces();
                 document.getElementById('grid-container').classList.remove('victory');
                 
                 generateWaveformGridImage();
+                updateGhostCanvas();
                 render();
             } catch (e) {
                 status.innerText = "❌ Error reading audio file!";
@@ -203,6 +210,19 @@
             const reader = new FileReader();
             reader.onload = async function(ev) { await processAudioData(ev.target.result); };
             reader.readAsArrayBuffer(file);
+        });
+
+        // RESTORED: Image Upload Logic
+        document.getElementById('imageUpload').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(ev) {
+                uploadedImageSrc = ev.target.result;
+                updateGhostCanvas();
+                render(); 
+            };
+            reader.readAsDataURL(file);
         });
 
         document.getElementById('recordBtn').addEventListener('click', async () => {
@@ -294,7 +314,6 @@
 
         function generateWaveformGridImage() {
             if (!mainBuffer) return;
-            
             const canvas = document.createElement('canvas');
             const size = 600; 
             canvas.width = size;
@@ -335,13 +354,29 @@
                     ctx.stroke();
                 }
             }
-            
             waveformImageSrc = canvas.toDataURL();
+        }
 
-            const ghostCanvas = document.getElementById('ghost-wave');
-            ghostCanvas.width = size; ghostCanvas.height = size;
-            const gCtx = ghostCanvas.getContext('2d');
-            gCtx.drawImage(canvas, 0, 0);
+        // New function to handle the background guide map
+        function updateGhostCanvas() {
+            const canvas = document.getElementById('ghost-wave');
+            const container = document.getElementById('grid-container');
+            const size = container.clientWidth - 20;
+            canvas.width = size; canvas.height = size;
+            const ctx = canvas.getContext('2d');
+            ctx.clearRect(0, 0, size, size);
+            
+            // Prioritize custom image for background guide, fallback to waveform
+            const activeBgSrc = uploadedImageSrc || waveformImageSrc;
+            
+            if (activeBgSrc) {
+                const img = new Image();
+                img.onload = () => {
+                    ctx.globalAlpha = 0.15;
+                    ctx.drawImage(img, 0, 0, size, size);
+                };
+                img.src = activeBgSrc;
+            }
         }
 
         function render() {
@@ -349,6 +384,9 @@
             const container = document.getElementById('grid-container');
             grid.innerHTML = '';
             const isSolved = pieces.every((p, i) => p === i);
+
+            // Determine which graphic to paint onto the puzzle pieces
+            const activePieceBg = uploadedImageSrc || waveformImageSrc;
 
             pieces.forEach((pIdx, i) => {
                 const div = document.createElement('div');
@@ -358,8 +396,8 @@
                 const origCol = pIdx % gridSize;
                 const origRow = Math.floor(pIdx / gridSize);
                 
-                if (waveformImageSrc) {
-                    div.style.backgroundImage = `url(${waveformImageSrc})`;
+                if (activePieceBg) {
+                    div.style.backgroundImage = `url(${activePieceBg})`;
                     div.style.backgroundSize = `${gridSize * 100}% ${gridSize * 100}%`;
                     div.style.backgroundPosition = `${(origCol / (gridSize - 1)) * 100}% ${(origRow / (gridSize - 1)) * 100}%`;
                 }
@@ -398,13 +436,15 @@
                 render();
             }
 
+            // Check win condition (Needs main buffer loaded so they can't "win" an empty image grid)
             if (isSolved && mainBuffer) { 
-                document.getElementById('status').innerText = "🎉 WAVEFORM DECODED SUCCESSFULLY!";
+                document.getElementById('status').innerText = "🎉 PUZZLE MASTERED!";
                 container.classList.add('victory');
                 playReference();
             }
         }
         
+        window.addEventListener('resize', updateGhostCanvas);
         render();
     </script>
 </body>
