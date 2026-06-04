@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pentatonic Grid Symphony: Pure Ear Edition</title>
+    <style>
+        :root {
+            --bg-color: #f4f7f6;
+            --grid-bg: #34495e;
+            --cell-clue: #cfd8dc;
+            --cell-empty: #ffffff;
+            --accent-color: #1abc9c;
+            --conflict-color: #d32f2f;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: var(--bg-color);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+            color: #333;
+        }
+
+        h1 {
+            margin-bottom: 5px;
+            color: #2c3e50;
+        }
+
+        p {
+            margin-bottom: 20px;
+            text-align: center;
+            max-width: 550px;
+            line-height: 1.4;
+        }
+
+        .game-layout {
+            display: grid;
+            grid-template-columns: 40px 1fr;
+            grid-template-rows: 40px 1fr;
+            gap: 5px;
+            align-items: center;
+            justify-items: center;
+            margin-bottom: 20px;
+        }
+
+        .top-triggers {
+            grid-column: 2;
+            grid-row: 1;
+            display: grid;
+            grid-template-columns: repeat(5, 60px);
+            gap: 4px;
+            justify-items: center;
+        }
+
+        .side-triggers {
+            grid-column: 1;
+            grid-row: 2;
+            display: grid;
+            grid-template-rows: repeat(5, 60px);
+            gap: 4px;
+            align-items: center;
+        }
+
+        #sudoku-container {
+            grid-column: 2;
+            grid-row: 2;
+            display: grid;
+            grid-template-columns: repeat(5, 60px);
+            grid-template-rows: repeat(5, 60px);
+            gap: 4px;
+            background: var(--grid-bg);
+            padding: 6px;
+            border-radius: 8px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+        }
+
+        .trigger-btn {
+            background: var(--grid-bg);
+            color: #fff;
+            border: none;
+            border-radius: 4px;
+            width: 30px;
+            height: 30px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.2s, transform 0.1s;
+        }
+        .trigger-btn:hover { background: var(--accent-color); }
+        .trigger-btn:active { transform: scale(0.9); }
+
+        .cell {
+            width: 60px;
+            height: 60px;
+            background: var(--cell-empty);
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            user-select: none;
+            transition: transform 0.1s, filter 0.2s, background-color 0.3s;
+            position: relative;
+        }
+
+        .cell:hover { filter: brightness(0.92); }
+        .cell:active { transform: scale(0.95); }
+
+        /* Fixed Clue Styles */
+        .cell.clue-hint {
+            background-color: var(--cell-clue);
+            cursor: not-allowed;
+        }
+        .cell.clue-hint:hover {
+            filter: none;
+        }
+        .cell.clue-hint::after {
+            content: "🔒";
+            position: absolute;
+            bottom: 4px;
+            font-size: 0.65rem;
+            opacity: 0.6;
+        }
+
+        /* User Note Indicator */
+        .cell.has-note::after {
+            content: "🎵";
+            font-size: 0.75rem;
+            opacity: 0.7;
+        }
+
+        /* Conflict Styles */
+        .cell.conflict {
+            background-color: #ffcdd2 !important;
+            animation: shake 0.2s ease-in-out;
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-2px); }
+            75% { transform: translateX(2px); }
+        }
+
+        #controls {
+            margin-top: 15px;
+            display: flex;
+            gap: 15px;
+        }
+
+        button {
+            padding: 10px 20px;
+            font-size: 1rem;
+            font-weight: bold;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            background: #3498db;
+            color: white;
+            transition: background 0.2s;
+        }
+
+        button:hover { background: #2980b9; }
+        #random-btn { background: #9b59b6; }
+        #random-btn:hover { background: #8e44ad; }
+        #check-btn { background: #2ecc71; }
+        #check-btn:hover { background: #27ae60; }
+
+        #message {
+            margin-top: 15px;
+            font-weight: bold;
+            font-size: 1.2rem;
+            height: 30px;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Pentatonic Grid Symphony: Pure Ear Edition</h1>
+    <p>
+        The ultimate test of relative pitch. No letters, no keyboard layout. Listen to the 5 hidden tones, look out for red row/column conflicts, and match the melody purely by ear.
+    </p>
+
+    <div class="game-layout">
+        <div class="top-triggers" id="top-triggers"></div>
+        <div class="side-triggers" id="side-triggers"></div>
+        <div id="sudoku-container"></div>
+    </div>
+
+    <div id="controls">
+        <button id="random-btn" onclick="generateNewPuzzle()">Generate New Puzzle</button>
+        <button id="check-btn" onclick="checkFullSymphony()">Check Symphony</button>
+        <button onclick="resetToCurrentClues()">Reset Board</button>
+    </div>
+
+    <div id="message"></div>
+
+<script>
+    let audioCtx = null;
+    
+    const frequencies = { 'A': 440.00, 'C': 523.25, 'D': 587.33, 'E': 659.25, 'G': 783.99 };
+    const notesList = ['A', 'C', 'D', 'E', 'G'];
+    const cyclesList = ['', 'A', 'C', 'D', 'E', 'G'];
+
+    let currentBoard = Array(25).fill('');
+    let initialClues = Array(25).fill('');
+
+    function initAudio() {
+        if (!audioCtx) {
+            try {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            } catch (e) {
+                console.error("Audio Context initialization failed:", e);
+            }
+        }
+    }
+
+    function playNote(note, duration = 0.5) {
+        if (!note || !frequencies[note]) return;
+        initAudio();
+        if (!audioCtx) return;
+        
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+
+        const oscillator = audioCtx.createOscillator();
+        const gainNode = audioCtx.createGain();
+        
+        oscillator.type = 'sine';
+        oscillator.frequency.setValueAtTime(frequencies[note], audioCtx.currentTime);
+        
+        gainNode.gain.setValueAtTime(0.25, audioCtx.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + duration);
+        
+        oscillator.connect(gainNode);
+        gainNode.connect(audioCtx.destination);
+        
+        oscillator.start();
+        oscillator.stop(audioCtx.currentTime + duration);
+    }
+
+    function playSequence(noteArray) {
+        let delay = 0;
+        noteArray.forEach(note => {
+            if (note !== '') {
+                setTimeout(() => playNote(note, 0.4), delay);
+                delay += 250;
+            }
+        });
+    }
+
+    function generateValidGrid() {
+        let grid = Array(25).fill('');
+        
+        function isValidPlacement(g, row, col, note) {
+            for (let i = 0; i < 5; i++) {
+                if (g[row * 5 + i] === note) return false;
+                if (g[i * 5 + col] === note) return false;
+            }
+            return true;
+        }
+
+        function solve(idx) {
+            if (idx === 25) return true;
+            let row = Math.floor(idx / 5);
+            let col = idx % 5;
+            
+            let shuffled = [...notesList].sort(() => Math.random() - 0.5);
+            
+            for (let note of shuffled) {
+                if (isValidPlacement(grid, row, col, note)) {
+                    grid[idx] = note;
+                    if (solve(idx + 1)) return true;
+                    grid[idx] = '';
+                }
+            }
+            return false;
+        }
+
+        solve(0);
+        return grid;
+    }
+
+    function generateNewPuzzle() {
+        const perfectSolution = generateValidGrid();
+        initialClues = Array(25).fill('');
+        
+        let indices = [];
+        while (indices.length < 11) {
+            let r = Math.floor(Math.random() * 25);
+            if (!indices.includes(r)) indices.push(r);
+        }
+
+        indices.forEach(idx => {
+            initialClues[idx] = perfectSolution[idx];
+        });
+
+        resetToCurrentClues();
+    }
+
+    function buildTriggers() {
+        const topTriggers = document.getElementById('top-triggers');
+        const sideTriggers = document.getElementById('side-triggers');
+        topTriggers.innerHTML = '';
+        sideTriggers.innerHTML = '';
+
+        for (let i = 0; i < 5; i++) {
+            const colBtn = document.createElement('button');
+            colBtn.className = 'trigger-btn';
+            colBtn.textContent = '▼';
+            colBtn.addEventListener('click', () => {
+                let colNotes = [];
+                for (let r = 0; r < 5; r++) colNotes.push(currentBoard[r * 5 + i]);
+                playSequence(colNotes);
+            });
+            topTriggers.appendChild(colBtn);
+
+            const rowBtn = document.createElement('button');
+            rowBtn.className = 'trigger-btn';
+            rowBtn.textContent = '▶';
+            rowBtn.addEventListener('click', () => {
+                let rowNotes = [];
+                for (let c = 0; c < 5; c++) rowNotes.push(currentBoard[i * 5 + c]);
+                playSequence(rowNotes);
+            });
+            sideTriggers.appendChild(rowBtn);
+        }
+    }
+
+    function resetToCurrentClues() {
+        const container = document.getElementById('sudoku-container');
+        container.innerHTML = '';
+        currentBoard = [...initialClues];
+
+        for (let index = 0; index < 25; index++) {
+            const cellValue = currentBoard[index];
+            const cell = document.createElement('div');
+            cell.className = 'cell';
+            cell.id = `cell-${index}`;
+            cell.textContent = ""; 
+
+            if (initialClues[index] !== '') {
+                cell.classList.add('clue-hint');
+                cell.addEventListener('click', () => playNote(initialClues[index]));
+            } else {
+                if (cellValue !== '') cell.classList.add('has-note');
+                
+                cell.addEventListener('click', () => cycleNote(index, cell, 1));
+                cell.addEventListener('contextmenu', (e) => {
+                    e.preventDefault();
+                    cycleNote(index, cell, -1);
+                });
+            }
+
+            container.appendChild(cell);
+        }
+        document.getElementById('message').textContent = '';
+        scanForConflicts();
+    }
+
+    function cycleNote(index, cellElement, direction) {
+        let currentNote = currentBoard[index];
+        let currentIndex = cyclesList.indexOf(currentNote);
+        
+        let nextIndex = (currentIndex + direction + cyclesList.length) % cyclesList.length;
+        let nextNote = cyclesList[nextIndex];
+        
+        currentBoard[index] = nextNote;
+        
+        if (nextNote !== '') {
+            cellElement.classList.add('has-note');
+            playNote(nextNote);
+        } else {
+            cellElement.classList.remove('has-note');
+        }
+        scanForConflicts();
+    }
+
+    function scanForConflicts() {
+        for (let i = 0; i < 25; i++) {
+            const el = document.getElementById(`cell-${i}`);
+            if (el) el.classList.remove('conflict');
+        }
+
+        for (let index = 0; index < 25; index++) {
+            let note = currentBoard[index];
+            if (note === '') continue;
+
+            const row = Math.floor(index / 5);
+            const col = index % 5;
+            let hasConflict = false;
+
+            for (let j = 0; j < 5; j++) {
+                let targetIdx = row * 5 + j;
+                if (targetIdx !== index && currentBoard[targetIdx] === note) hasConflict = true;
+            }
+
+            for (let i = 0; i < 5; i++) {
+                let targetIdx = i * 5 + col;
+                if (targetIdx !== index && currentBoard[targetIdx] === note) hasConflict = true;
+            }
+
+            if (hasConflict) {
+                const el = document.getElementById(`cell-${index}`);
+                if (el) el.classList.add('conflict');
+            }
+        }
+    }
+
+    function checkFullSymphony() {
+        const msg = document.getElementById('message');
+        
+        if (currentBoard.includes('')) {
+            msg.style.color = '#e67e22';
+            msg.textContent = "The board isn't completely filled yet!";
+            return;
+        }
+
+        let conflicts = document.querySelectorAll('.conflict');
+        if (conflicts.length > 0) {
+            msg.style.color = '#e74c3c';
+            msg.textContent = "Dissonance! Resolve conflicting notes.";
+            return;
+        }
+
+        const isUnique5 = (arr) => new Set(arr).size === 5;
+
+        for (let i = 0; i < 5; i++) {
+            let row = []; let col = [];
+            for (let j = 0; j < 5; j++) {
+                row.push(currentBoard[i * 5 + j]);
+                col.push(currentBoard[j * 5 + i]);
+            }
+            if (!isUnique5(row) || !isUnique5(col)) {
+                msg.style.color = '#e74c3c';
+                msg.textContent = "Validation error inside rows or columns.";
+                return;
+            }
+        }
+
+        msg.style.color = '#2ecc71';
+        msg.textContent = "🎉 Perfect Harmony! Solved flawlessly by ear!";
+        playSequence(['A', 'C', 'D', 'E', 'G']);
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+        buildTriggers();
+        generateNewPuzzle();
+    });
+</script>
+</body>
+</html>
