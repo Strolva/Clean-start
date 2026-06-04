@@ -182,7 +182,7 @@
 
     <h1>Pentatonic Grid Symphony: Pure Ear Edition</h1>
     <p>
-        The ultimate test of relative pitch. No letters, no keyboard layout. Listen to the 5 hidden tones, identify row/column conflicts, and match the melody purely by ear.
+        The ultimate test of relative pitch. No letters, no visual layout keys. Listen to the 5 hidden tones, identify row/column conflicts, and match the melody purely by ear.
     </p>
 
     <div class="game-layout">
@@ -242,6 +242,7 @@
         oscillator.stop(audioCtx.currentTime + duration);
     }
 
+    // Sequence players for arrow button triggers
     function playSequence(noteArray) {
         let delay = 0;
         noteArray.forEach(note => {
