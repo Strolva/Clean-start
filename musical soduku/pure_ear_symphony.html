@@ -363,4 +363,117 @@
 
             if (initialClues[index] !== '') {
                 cell.classList.add('clue-hint');
-                cell.addEventListener('click',
+                cell.addEventListener('click', () => playNote(initialClues[index]));
+            } else {
+                if (cellValue !== '') cell.classList.add('has-note');
+                
+                cell.addEventListener('click', () => cycleNote(index, cell, 1));
+                cell.addEventListener('contextmenu', (e) => {
+                    e.preventDefault();
+                    cycleNote(index, cell, -1);
+                });
+            }
+
+            container.appendChild(cell);
+        }
+        document.getElementById('message').textContent = '';
+        scanForConflicts();
+    }
+
+    function cycleNote(index, cellElement, direction) {
+        let currentNote = currentBoard[index];
+        let currentIndex = cyclesList.indexOf(currentNote);
+        
+        let nextIndex = (currentIndex + direction + cyclesList.length) % cyclesList.length;
+        let nextNote = cyclesList[nextIndex];
+        
+        currentBoard[index] = nextNote;
+        
+        if (nextNote !== '') {
+            cellElement.classList.add('has-note');
+            playNote(nextNote);
+        } else {
+            cellElement.classList.remove('has-note');
+        }
+        scanForConflicts();
+    }
+
+    function scanForConflicts() {
+        for (let i = 0; i < 25; i++) {
+            const el = document.getElementById(`cell-${i}`);
+            if (el) el.classList.remove('conflict');
+        }
+
+        for (let index = 0; index < 25; index++) {
+            let note = currentBoard[index];
+            if (note === '') continue;
+
+            const row = Math.floor(index / 5);
+            const col = index % 5;
+            let hasConflict = false;
+
+            // Check Row
+            for (let j = 0; j < 5; j++) {
+                let targetIdx = row * 5 + j;
+                if (targetIdx !== index && currentBoard[targetIdx] === note) hasConflict = true;
+            }
+
+            // Check Column
+            for (let i = 0; i < 5; i++) {
+                let targetIdx = i * 5 + col;
+                if (targetIdx !== index && currentBoard[targetIdx] === note) hasConflict = true;
+            }
+
+            if (hasConflict) {
+                const el = document.getElementById(`cell-${index}`);
+                if (el) el.classList.add('conflict');
+            }
+        }
+    }
+
+    function checkFullSymphony() {
+        const msg = document.getElementById('message');
+        
+        if (currentBoard.includes('')) {
+            msg.style.color = '#e67e22';
+            msg.textContent = "The board isn't completely filled yet!";
+            return;
+        }
+
+        let conflicts = document.querySelectorAll('.conflict');
+        if (conflicts.length > 0) {
+            msg.style.color = '#e74c3c';
+            msg.textContent = "Dissonance! Resolve conflicting notes.";
+            return;
+        }
+
+        const isUnique5 = (arr) => new Set(arr).size === 5;
+
+        for (let i = 0; i < 5; i++) {
+            let row = []; let col = [];
+            for (let j = 0; j < 5; j++) {
+                row.push(currentBoard[i * 5 + j]);
+                col.push(currentBoard[j * 5 + i]);
+            }
+            if (!isUnique5(row) || !isUnique5(col)) {
+                msg.style.color = '#e74c3c';
+                msg.textContent = "Validation error inside rows or columns.";
+                return;
+            }
+        }
+
+        msg.style.color = '#2ecc71';
+        msg.textContent = "🎉 Perfect Harmony! Solved flawlessly by ear!";
+        
+        // Victory Arpeggio
+        playSequence(['A', 'C', 'D', 'E', 'G']);
+    }
+
+    // Startup Initialization
+    window.addEventListener('DOMContentLoaded', () => {
+        buildTriggers();
+        generateNewPuzzle();
+    });
+</script>
+</body>
+</html>
