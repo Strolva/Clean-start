@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Audio-Only Jigsaw Module</title>
+    <style>
+        body { 
+            background: #0f172a; color: #38bdf8; font-family: sans-serif; 
+            display: flex; flex-direction: column; align-items: center; justify-content: flex-start; 
+            min-height: 100vh; margin: 0; padding: 20px 10px; overflow-x: hidden;
+            -webkit-user-select: none; user-select: none;
+        }
+
+        #top-bar {
+            width: 100%; max-width: 400px; display: flex; justify-content: space-between; 
+            align-items: center; margin-bottom: 20px;
+        }
+        #homeBtn { background: #334155; color: #fff; padding: 10px 15px; font-size: 0.9rem; border: none; border-radius: 8px; font-weight: bold; cursor: pointer;}
+        
+        #grid-controls { display: flex; align-items: center; gap: 10px; background: #1e293b; padding: 5px; border-radius: 8px;}
+        .stepper-btn { background: #334155; color: white; border: none; border-radius: 6px; padding: 8px 12px; font-size: 1rem; cursor: pointer; touch-action: manipulation; }
+        .stepper-btn:active { background: #475569; }
+        #grid-size-label { font-weight: bold; width: 40px; text-align: center; color: #fff; }
+
+        #controls { margin-bottom: 20px; display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; width: 100%; max-width: 420px;}
+        .btn { 
+            padding: 10px 14px; border-radius: 8px; border: none; font-size: 0.85rem;
+            font-weight: bold; cursor: pointer; transition: 0.2s; 
+            display: flex; align-items: center; justify-content: center;
+        }
+        
+        .btn-audio { background: #38bdf8; color: #0f172a; }
+        .btn-record { background: #f59e0b; color: #0f172a; }
+        .btn-record.recording { background: #ef4444; color: #fff; animation: pulseRecord 1s infinite; }
+        .btn-shuffle { background: #6366f1; color: #fff; display: none; }
+        
+        #refBtn { background: #22c55e; color: #fff; display: none; }
+        #stopBtn { background: #ef4444; color: #fff; display: none; }
+
+        @keyframes pulseRecord {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+
+        #grid-container { 
+            position: relative; padding: 10px; background: #1e293b; 
+            border-radius: 12px; transition: all 0.5s ease;
+            width: 100%; max-width: 400px; box-sizing: border-box;
+        }
+        
+        #grid { 
+            display: grid; 
+            grid-template-columns: repeat(var(--cols, 3), 1fr); 
+            gap: 6px; width: 100%; position: relative; 
+        }
+        .piece { 
+            background: rgba(51, 65, 85, 0.9); cursor: grab; border-radius: 6px; 
+            border: 2px solid #475569; overflow: hidden; aspect-ratio: 1 / 1;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 2rem; color: #64748b; /* Note color */
+            position: relative; touch-action: none; transition: all 0.2s;
+        }
+        .piece:active { cursor: grabbing; transform: scale(0.96); }
+        .piece.correct { border-color: #0ea5e9; background: rgba(14, 165, 233, 0.1); color: #0ea5e9; }
+        .piece.dragging { opacity: 0.5; border-style: dashed; }
+        
+        #status { margin-top: 20px; font-weight: bold; min-height: 20px; text-align: center; font-size: 0.9rem;}
+
+        @keyframes pulse {
+            0% { transform: scale(1); box-shadow: 0 0 0px #38bdf8; }
+            50% { transform: scale(1.02); box-shadow: 0 0 25px #38bdf8; }
+            100% { transform: scale(1); box-shadow: 0 0 0px #38bdf8; }
+        }
+        .victory { animation: pulse 2s infinite ease-in-out; border: 2px solid #22c55e; }
+    </style>
+</head>
+<body>
+
+    <div id="top-bar">
+        <button id="homeBtn" onclick="window.location.href='../../index.html'">◀ Home</button>
+        <div id="grid-controls">
+            <button class="stepper-btn" onclick="changeGridSize(-1)">➖</button>
+            <span id="grid-size-label">3x3</span>
+            <button class="stepper-btn" onclick="changeGridSize(1)">➕</button>
+        </div>
+    </div>
+
+    <div id="controls">
+        <label class="btn btn-audio">
+            📂 LOAD AUDIO
+            <input type="file" id="audioUpload" accept="audio/*" style="display: none;">
+        </label>
+        
+        <button id="recordBtn" class="btn btn-record">🎤 RECORD</button>
+        <button id="shuffleBtn" class="btn btn-shuffle" onclick="manualShuffle()">🧩 SHUFFLE</button>
+        
+        <button id="refBtn" class="btn" onclick="playReference()">REF AUDIO</button>
+        <button id="stopBtn" class="btn" onclick="stopEverything()">STOP</button>
+    </div>
+
+    <div id="grid-container">
+        <div id="grid" style="--cols: 3;"></div>
+    </div>
+
+    <p id="status">Upload or record audio to begin the blind listening puzzle!</p>
+
+    <script>
+        let audioCtx, mainBuffer;
+        let activeSources = []; 
+        
+        let mediaRecorder;
+        let audioChunks = [];
+        let isRecording = false;
+        
+        let gridSize = 3; 
+        let totalPieces = gridSize * gridSize;
+        let pieces = [];
+        let draggedIdx = null; 
+
+        function scramblePieces() {
+            do {
+                pieces = Array.from({length: totalPieces}, (_, i) => i).sort(() => Math.random() - 0.5);
+            } while (pieces.every((p, i) => p === i) && totalPieces > 1);
+        }
+        scramblePieces(); 
+
+        function manualShuffle() {
+            scramblePieces();
+            document.getElementById('grid-container').classList.remove('victory');
+            document.getElementById('status').innerText = "Matrix randomized! Rely on your ears.";
+            render();
+            if (mainBuffer) playSlice(pieces[0]);
+        }
+
+        function changeGridSize(dir) {
+            let newSize = gridSize + dir;
+            if (newSize >= 3 && newSize <= 5) {
+                gridSize = newSize;
+                totalPieces = gridSize * gridSize;
+                
+                document.getElementById('grid-size-label').innerText = `${gridSize}x${gridSize}`;
+                document.getElementById('grid').style.setProperty('--cols', gridSize);
+                
+                scramblePieces();
+                stopEverything();
+                document.getElementById('grid-container').classList.remove('victory');
+                
+                if (mainBuffer) {
+                    document.getElementById('status').innerText = `Grid updated to ${gridSize}x${gridSize}!`;
+                }
+                render();
+            }
+        }
+
+        function initAudioCtx() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+        }
+
+        async function processAudioData(arrayBuffer) {
+            const status = document.getElementById('status');
+            status.innerText = "Decoding Audio...";
+            try {
+                mainBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+                
+                document.getElementById('refBtn').style.display = 'inline-block';
+                document.getElementById('stopBtn').style.display = 'inline-block';
+                document.getElementById('shuffleBtn').style.display = 'inline-block';
+                
+                status.innerText = "Audio loaded. Click pieces to listen and drag to organize!";
+                
+                scramblePieces();
+                document.getElementById('grid-container').classList.remove('victory');
+                render();
+            } catch (e) {
+                status.innerText = "❌ Error reading audio file!";
+                console.error(e);
+            }
+        }
+
+        document.getElementById('audioUpload').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            initAudioCtx();
+            const reader = new FileReader();
+            reader.onload = async function(ev) { await processAudioData(ev.target.result); };
+            reader.readAsArrayBuffer(file);
+        });
+
+        document.getElementById('recordBtn').addEventListener('click', async () => {
+            const recordBtn = document.getElementById('recordBtn');
+            const status = document.getElementById('status');
+
+            if (!isRecording) {
+                try {
+                    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                    mediaRecorder = new MediaRecorder(stream);
+                    audioChunks = [];
+                    mediaRecorder.ondataavailable = e => { if (e.data.size > 0) audioChunks.push(e.data); };
+                    mediaRecorder.onstop = async () => {
+                        initAudioCtx();
+                        const audioBlob = new Blob(audioChunks);
+                        const arrayBuffer = await audioBlob.arrayBuffer();
+                        await processAudioData(arrayBuffer);
+                    };
+                    mediaRecorder.start();
+                    isRecording = true;
+                    recordBtn.innerText = "🛑 STOP";
+                    recordBtn.classList.add('recording');
+                    status.innerText = "🔴 Capturing mic feed...";
+                } catch (err) {
+                    status.innerText = "❌ Mic feed dropped.";
+                    console.error(err);
+                }
+            } else {
+                mediaRecorder.stop();
+                isRecording = false;
+                recordBtn.innerText = "🎤 RECORD";
+                recordBtn.classList.remove('recording');
+            }
+        });
+
+        function stopEverything() {
+            activeSources.forEach(s => { try { s.stop(); } catch(e) {} });
+            activeSources = [];
+        }
+
+        function playSlice(idx) {
+            if (!mainBuffer) return;
+            stopEverything(); 
+            const source = audioCtx.createBufferSource();
+            const gainNode = audioCtx.createGain();
+            source.buffer = mainBuffer;
+            
+            const sliceWidth = mainBuffer.duration / totalPieces;
+            const startOffset = idx * sliceWidth;
+            const playDuration = sliceWidth;
+
+            source.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+            
+            gainNode.gain.setValueAtTime(0.001, audioCtx.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(1, audioCtx.currentTime + 0.01);
+            gainNode.gain.setValueAtTime(1, audioCtx.currentTime + playDuration - 0.01);
+            gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + playDuration);
+            
+            source.start(0, startOffset, playDuration);
+            activeSources.push(source);
+        }
+
+        function playReference() {
+            if (!mainBuffer) return;
+            stopEverything();
+            const source = audioCtx.createBufferSource();
+            source.buffer = mainBuffer;
+            source.connect(audioCtx.destination);
+            source.start(0);
+            activeSources.push(source);
+        }
+
+        function render() {
+            const grid = document.getElementById('grid');
+            const container = document.getElementById('grid-container');
+            grid.innerHTML = '';
+            const isSolved = pieces.every((p, i) => p === i);
+
+            pieces.forEach((pIdx, i) => {
+                const div = document.createElement('div');
+                div.className = `piece ${pIdx === i ? 'correct' : ''}`;
+                div.setAttribute('data-index', i);
+                
+                // Add a simple uniform icon so the pieces aren't completely empty boxes
+                div.innerHTML = '🎵';
+
+                // --- DRAG CONTROLS ---
+                div.draggable = true;
+                div.ondragstart = (e) => { draggedIdx = i; div.classList.add('dragging'); e.dataTransfer.setData('text/plain', i); };
+                div.ondragend = () => div.classList.remove('dragging');
+                div.ondragover = (e) => e.preventDefault();
+                div.ondrop = (e) => { e.preventDefault(); const from = draggedIdx !== null ? draggedIdx : e.dataTransfer.getData('text'); executeSwap(parseInt(from), i); };
+
+                // --- MOBILE TOUCH HANDLING CONTROLS ---
+                div.addEventListener('touchstart', (e) => { if(e.touches.length === 1) draggedIdx = i; }, {passive: true});
+                div.addEventListener('touchend', (e) => {
+                    const changedTouch = e.changedTouches[0];
+                    const targetEl = document.elementFromPoint(changedTouch.clientX, changedTouch.clientY);
+                    const dropZone = targetEl ? targetEl.closest('.piece') : null;
+                    if (dropZone) {
+                        const toIndex = parseInt(dropZone.getAttribute('data-index'));
+                        if (draggedIdx !== null && draggedIdx !== toIndex) executeSwap(draggedIdx, toIndex);
+                        else playSlice(pIdx);
+                    } else {
+                        playSlice(pIdx);
+                    }
+                    draggedIdx = null;
+                });
+
+                div.onclick = (e) => { if(e.pointerType === 'mouse' || e.type === 'click') playSlice(pIdx); };
+                grid.appendChild(div);
+            });
+
+            function executeSwap(from, to) {
+                if (isNaN(from) || isNaN(to)) return;
+                [pieces[from], pieces[to]] = [pieces[to], pieces[from]];
+                playSlice(pieces[to]);
+                render();
+            }
+
+            if (isSolved && mainBuffer) { 
+                document.getElementById('status').innerText = "🎉 AUDIO DECODED SUCCESSFULLY!";
+                container.classList.add('victory');
+                playReference();
+            }
+        }
+        
+        render();
+    </script>
+</body>
+</html>
