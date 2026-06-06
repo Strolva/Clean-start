@@ -146,37 +146,85 @@
         }
 
         function initPads() {
-            for (let i = 0; i < 16; i++) {
-                const pad = document.createElement('button');
-                pad.className = 'pad';
-                pad.dataset.index = i;
+            f// 1. Create a single, hidden file input for the entire application
+const fileInput = document.createElement('input');
+fileInput.type = 'file';
+fileInput.accept = 'audio/*';
+fileInput.style.display = 'none';
+document.body.appendChild(fileInput);
 
-                // pointerdown bypasses the 300ms mobile click delay entirely
-                pad.addEventListener('pointerdown', (e) => {
-                    // Prevent default touch behavior (scrolling/emulated mouse events)
-                    e.preventDefault();
-                    
-                    // iOS/Chrome constraint: AudioContext is suspended until a physical user interaction
-                    if (audioCtx.state === 'suspended') {
-                        audioCtx.resume().then(() => {
-                            statusEl.textContent = 'Audio Context: Active';
-                            statusEl.style.color = '#00ff88';
-                        });
-                    }
-                    
-                    playSample(i);
-                    
-                    // Visual feedback fallback if CSS :active is sluggish on the specific OS
-                    pad.classList.add('active');
-                    setTimeout(() => pad.classList.remove('active'), 100);
-                });
+let targetPadIndex = null;
 
-                // Failsafe to clean up visual state if pointer slides off the pad
-                pad.addEventListener('pointerup', () => pad.classList.remove('active'));
-                pad.addEventListener('pointerleave', () => pad.classList.remove('active'));
+// 2. Handle the local file decoding
+fileInput.addEventListener('change', async (e) => {
+    const file = e.target.files[0];
+    if (!file || targetPadIndex === null) return;
 
-                padGrid.appendChild(pad);
+    try {
+        statusEl.textContent = `Decoding ${file.name}...`;
+        statusEl.style.color = '#ffaa00';
+
+        // Read file to memory and decode
+        const arrayBuffer = await file.arrayBuffer();
+        const decodedAudio = await audioCtx.decodeAudioData(arrayBuffer);
+        
+        // Overwrite the existing buffer
+        audioBuffers[targetPadIndex] = decodedAudio;
+        
+        statusEl.textContent = `Loaded: ${file.name}`;
+        statusEl.style.color = '#00ff88';
+    } catch (err) {
+        console.error('Failed to decode local audio file:', err);
+        statusEl.textContent = 'Error: Invalid audio file format.';
+        statusEl.style.color = '#ff4444';
+    } finally {
+        // Reset the input so the same file can be loaded again if needed
+        fileInput.value = ''; 
+    }
+});
+
+// 3. Updated Pad Initialization
+function initPads() {
+    for (let i = 0; i < 16; i++) {
+        const pad = document.createElement('button');
+        pad.className = 'pad';
+        pad.dataset.index = i;
+
+        // SVG Folder Icon
+        const icon = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        icon.setAttribute('viewBox', '0 0 24 24');
+        icon.setAttribute('class', 'folder-icon');
+        icon.innerHTML = `<path d="M10 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z"/>`;
+
+        // Routing the icon click to the hidden file input
+        icon.addEventListener('pointerdown', (e) => {
+            e.preventDefault();
+            e.stopPropagation(); // CRITICAL: Prevents the drum pad from striking
+            targetPadIndex = i;
+            fileInput.click();
+        });
+
+        pad.appendChild(icon);
+
+        pad.addEventListener('pointerdown', (e) => {
+            e.preventDefault();
+            
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
             }
+            
+            playSample(i);
+            
+            pad.classList.add('active');
+            setTimeout(() => pad.classList.remove('active'), 100);
+        });
+
+        pad.addEventListener('pointerup', () => pad.classList.remove('active'));
+        pad.addEventListener('pointerleave', () => pad.classList.remove('active'));
+
+        padGrid.appendChild(pad);
+    }
+}
         }
 
         // Initialize system
