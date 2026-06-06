@@ -92,30 +92,42 @@
         const statusEl = document.getElementById('status');
         const audioBuffers = new Array(16);
 
-        // --- 1. OFFLINE SYNTH GENERATOR ---
-        // Instantly generates 16 default tones to bypass all network/loading errors
-        function generateDefaultSounds() {
-            const sr = audioCtx.sampleRate;
-            for(let i = 0; i < 16; i++) {
-                const len = sr * 0.5; 
-                const buf = audioCtx.createBuffer(1, len, sr);
-                const data = buf.getChannelData(0);
-                let phase = 0;
-                
-                // Lower the pitch incrementally for each pad to create a basic kit
-                const baseFreq = 250 - (i * 10);
-                
-                for(let j = 0; j < len; j++) {
-                    const t = j / sr;
-                    const freq = baseFreq * Math.exp(-t * 20); // Quick pitch drop
-                    phase += (freq * 2 * Math.PI) / sr;
-                    data[j] = Math.sin(phase) * Math.exp(-t * 10); // Volume decay
-                }
-                audioBuffers[i] = buf;
-            }
-            statusEl.textContent = 'System Ready. Hold a pad to load a custom sample.';
-            statusEl.style.color = '#00ff88';
-        }
+        // 1. Map exactly 16 relative paths (using the 4 sounds repeatedly for a full pad layout)
+const SAMPLE_PATHS = [
+    './sounds/kick.wav', './sounds/snare.wav', './sounds/hat.wav', './sounds/tom.wav',
+    './sounds/kick.wav', './sounds/snare.wav', './sounds/hat.wav', './sounds/tom.wav',
+    './sounds/kick.wav', './sounds/snare.wav', './sounds/hat.wav', './sounds/tom.wav',
+    './sounds/kick.wav', './sounds/snare.wav', './sounds/hat.wav', './sounds/tom.wav'
+];
+
+// 2. Fetch and decode into memory asynchronously
+async function preloadSamples() {
+    const statusEl = document.getElementById('status');
+    statusEl.textContent = 'Downloading samples into memory...';
+    
+    try {
+        const promises = SAMPLE_PATHS.map(async (path, index) => {
+            const response = await fetch(path);
+            if (!response.ok) throw new Error(`HTTP ${response.status} for ${path}`);
+            
+            const arrayBuffer = await response.arrayBuffer();
+            audioBuffers[index] = await audioCtx.decodeAudioData(arrayBuffer);
+        });
+        
+        // Block initialization until all 16 tracks are downloaded and processed
+        await Promise.all(promises);
+        
+        statusEl.textContent = 'System Ready. Pads loaded.';
+        statusEl.style.color = '#00ff88';
+    } catch (error) {
+        console.error('Preload failed:', error);
+        statusEl.textContent = 'FATAL ERROR: Fetch blocked. Are you running a local HTTP server?';
+        statusEl.style.color = '#ff4444';
+    }
+}
+
+// 3. Execution Execution
+preloadSamples().then(initPads);
 
         // --- 2. LOCAL FILE PROCESSING ---
         const fileInput = document.createElement('input');
