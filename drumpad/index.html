@@ -20,6 +20,7 @@
             align-items: center; 
             justify-content: center; 
             min-height: 100vh;
+            /* Prevent pull-to-refresh on mobile */
             overscroll-behavior-y: contain; 
         }
 
@@ -44,15 +45,19 @@
         }
 
         .pad { 
-            position: relative; /* Required to place the folder icon precisely inside */
             background: var(--pad-color); 
             border: 2px solid #333; 
             border-radius: 8px; 
             cursor: pointer; 
+            
+            /* Enforce immediate touch registration and disable double-tap zoom */
             touch-action: manipulation; 
             transition: background 0.05s, transform 0.05s;
+            
+            /* Prevent text selection and native OS long-press context menus */
             -webkit-user-select: none;
             user-select: none;
+            -webkit-touch-callout: none; 
         }
 
         .pad:active, .pad.active { 
@@ -61,27 +66,12 @@
             transform: scale(0.96);
         }
 
-        .folder-icon {
-            position: absolute;
-            top: 6px;
-            right: 6px;
-            width: 20px;
-            height: 20px;
-            fill: #666;
-            cursor: pointer;
-            z-index: 10;
-            transition: fill 0.2s;
-        }
-
-        .folder-icon:hover {
-            fill: #fff;
-        }
-
         #status {
-            color: #ff4444;
+            color: #888;
             margin-top: 20px;
             font-size: 14px;
             height: 20px;
+            text-align: center;
         }
     </style>
 </head>
@@ -92,7 +82,7 @@
     <div class="grid" id="pad-grid">
         </div>
 
-    <div id="status">Loading Audio Engine...</div>
+    <div id="status">Initializing Synth Engine...</div>
 
     <script>
         const AudioContext = window.AudioContext || window.webkitAudioContext;
@@ -100,13 +90,34 @@
         
         const padGrid = document.getElementById('pad-grid');
         const statusEl = document.getElementById('status');
-
-        const testSampleUrl = 'https://actions.google.com/sounds/v1/percussions/ambient_tom.ogg';
-        const SAMPLE_URLS = Array(16).fill(testSampleUrl); 
         const audioBuffers = new Array(16);
 
-        // --- FILE UPLOAD LOGIC ---
-        // Create a single hidden file input to handle all sample loading
+        // --- 1. OFFLINE SYNTH GENERATOR ---
+        // Instantly generates 16 default tones to bypass all network/loading errors
+        function generateDefaultSounds() {
+            const sr = audioCtx.sampleRate;
+            for(let i = 0; i < 16; i++) {
+                const len = sr * 0.5; 
+                const buf = audioCtx.createBuffer(1, len, sr);
+                const data = buf.getChannelData(0);
+                let phase = 0;
+                
+                // Lower the pitch incrementally for each pad to create a basic kit
+                const baseFreq = 250 - (i * 10);
+                
+                for(let j = 0; j < len; j++) {
+                    const t = j / sr;
+                    const freq = baseFreq * Math.exp(-t * 20); // Quick pitch drop
+                    phase += (freq * 2 * Math.PI) / sr;
+                    data[j] = Math.sin(phase) * Math.exp(-t * 10); // Volume decay
+                }
+                audioBuffers[i] = buf;
+            }
+            statusEl.textContent = 'System Ready. Hold a pad to load a custom sample.';
+            statusEl.style.color = '#00ff88';
+        }
+
+        // --- 2. LOCAL FILE PROCESSING ---
         const fileInput = document.createElement('input');
         fileInput.type = 'file';
         fileInput.accept = 'audio/*';
@@ -114,8 +125,8 @@
         document.body.appendChild(fileInput);
 
         let targetPadIndex = null;
+        const HOLD_THRESHOLD = 600; // 600ms required to trigger upload menu
 
-        // Process the local file when selected
         fileInput.addEventListener('change', async (e) => {
             const file = e.target.files[0];
             if (!file || targetPadIndex === null) return;
@@ -125,96 +136,74 @@
                 statusEl.style.color = '#ffaa00';
 
                 const arrayBuffer = await file.arrayBuffer();
-                const decodedAudio = await audioCtx.decodeAudioData(arrayBuffer);
+                audioBuffers[targetPadIndex] = await audioCtx.decodeAudioData(arrayBuffer);
                 
-                audioBuffers[targetPadIndex] = decodedAudio;
-                
-                statusEl.textContent = `Loaded: ${file.name}`;
+                statusEl.textContent = `Loaded: ${file.name} to Pad ${targetPadIndex + 1}`;
                 statusEl.style.color = '#00ff88';
             } catch (err) {
-                console.error('Failed to decode local audio file:', err);
-                statusEl.textContent = 'Error: Invalid audio file format.';
+                console.error('File decode failed:', err);
+                statusEl.textContent = 'Error: Invalid audio format.';
                 statusEl.style.color = '#ff4444';
             } finally {
-                fileInput.value = ''; // Reset input
+                fileInput.value = ''; // Reset input to allow reloading the same file
             }
         });
 
-        // --- AUDIO PLAYBACK LOGIC ---
-        async function loadSamples() {
-            try {
-                const promises = SAMPLE_URLS.map(async (url, index) => {
-                    const response = await fetch(url);
-                    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-                    const arrayBuffer = await response.arrayBuffer();
-                    audioBuffers[index] = await audioCtx.decodeAudioData(arrayBuffer);
-                });
-                
-                await Promise.all(promises);
-                statusEl.textContent = 'System Ready. Tap a pad to unlock audio.';
-                statusEl.style.color = '#888';
-            } catch (err) {
-                console.error('Audio asset loading failed:', err);
-                statusEl.textContent = 'Error: Failed to fetch audio buffers. Check CORS.';
-            }
-        }
-
+        // --- 3. AUDIO PLAYBACK ---
         function playSample(index) {
             if (!audioBuffers[index]) return;
             const source = audioCtx.createBufferSource();
             source.buffer = audioBuffers[index];
             source.connect(audioCtx.destination);
-            source.start(0);
+            source.start(0); // Hardware-level zero-latency trigger
         }
 
+        // --- 4. PAD INITIALIZATION & TIMER LOGIC ---
         function initPads() {
             for (let i = 0; i < 16; i++) {
                 const pad = document.createElement('button');
                 pad.className = 'pad';
                 pad.dataset.index = i;
+                
+                let holdTimer;
 
-                // Create the SVG Folder Icon
-                const icon = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-                icon.setAttribute('viewBox', '0 0 24 24');
-                icon.setAttribute('class', 'folder-icon');
-                icon.innerHTML = `<path d="M10 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z"/>`;
+                // Disable right-click context menus on desktop to match mobile behavior
+                pad.addEventListener('contextmenu', (e) => e.preventDefault());
 
-                // Intercept clicks on the icon to load a file instead of playing the drum
-                icon.addEventListener('pointerdown', (e) => {
-                    e.preventDefault();
-                    e.stopPropagation(); // Stops the pad from triggering
-                    targetPadIndex = i;
-                    fileInput.click();
-                });
-
-                pad.appendChild(icon);
-
-                // Normal pad triggering
                 pad.addEventListener('pointerdown', (e) => {
                     e.preventDefault();
                     
-                    if (audioCtx.state === 'suspended') {
-                        audioCtx.resume().then(() => {
-                            statusEl.textContent = 'Audio Context: Active';
-                            statusEl.style.color = '#00ff88';
-                        });
-                    }
+                    // Web Audio policy: Must resume context on first interaction
+                    if (audioCtx.state === 'suspended') audioCtx.resume();
                     
+                    // Fire audio instantly to preserve instrument playability
                     playSample(i);
-                    
                     pad.classList.add('active');
-                    setTimeout(() => pad.classList.remove('active'), 100);
+
+                    // Start the clock for the custom file loader
+                    holdTimer = setTimeout(() => {
+                        targetPadIndex = i;
+                        fileInput.click();
+                    }, HOLD_THRESHOLD);
                 });
 
-                pad.addEventListener('pointerup', () => pad.classList.remove('active'));
-                pad.addEventListener('pointerleave', () => pad.classList.remove('active'));
+                // Failsafe: Abort the timer if the interaction ends or is interrupted
+                const cancelHold = () => {
+                    clearTimeout(holdTimer);
+                    pad.classList.remove('active');
+                };
+
+                pad.addEventListener('pointerup', cancelHold);
+                pad.addEventListener('pointerleave', cancelHold);
+                pad.addEventListener('pointercancel', cancelHold);
 
                 padGrid.appendChild(pad);
             }
         }
 
-        // Initialize
-        loadSamples().then(initPads);
+        // Boot system sequentially
+        generateDefaultSounds();
+        initPads();
     </script>
 </body>
 </html>
