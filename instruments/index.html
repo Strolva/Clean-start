@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Bocs Sain Drum Pad</title>
+    <style>
+        :root { 
+            --pad-color: #2a2a2a; 
+            --pad-active: #00ff88; 
+            --bg-color: #111;
+        }
+        
+        body { 
+            margin: 0; 
+            background: var(--bg-color); 
+            font-family: system-ui, -apple-system, sans-serif; 
+            display: flex; 
+            flex-direction: column; 
+            align-items: center; 
+            justify-content: center; 
+            min-height: 100vh;
+            /* Prevent pull-to-refresh and swipe navigation on mobile */
+            overscroll-behavior-y: contain; 
+        }
+
+        .nav-link { 
+            color: #888; 
+            text-decoration: none; 
+            margin-bottom: 30px; 
+            font-size: 16px;
+            font-weight: 500;
+            transition: color 0.2s;
+        }
+
+        .nav-link:hover { color: #fff; }
+
+        .grid { 
+            display: grid; 
+            grid-template-columns: repeat(4, 1fr); 
+            gap: 12px; 
+            width: 90vw; 
+            max-width: 500px; 
+            aspect-ratio: 1/1; 
+        }
+
+        .pad { 
+            background: var(--pad-color); 
+            border: 2px solid #333; 
+            border-radius: 8px; 
+            cursor: pointer; 
+            /* Disables double-tap to zoom on mobile, enforcing immediate touch registration */
+            touch-action: manipulation; 
+            transition: background 0.05s, transform 0.05s;
+            /* Prevent text selection highlighting on rapid taps */
+            -webkit-user-select: none;
+            user-select: none;
+        }
+
+        .pad:active, .pad.active { 
+            background: var(--pad-active); 
+            border-color: var(--pad-active);
+            transform: scale(0.96);
+        }
+
+        #status {
+            color: #ff4444;
+            margin-top: 20px;
+            font-size: 14px;
+            height: 20px;
+        }
+    </style>
+</head>
+<body>
+
+    <a href="https://bocssain.cymru" class="nav-link">← Back to Bocs Sain</a>
+    
+    <div class="grid" id="pad-grid">
+        </div>
+
+    <div id="status">Loading Audio Engine...</div>
+
+    <script>
+        // Use standard or webkit-prefixed AudioContext for Safari compatibility
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        const audioCtx = new AudioContext();
+        
+        const padGrid = document.getElementById('pad-grid');
+        const statusEl = document.getElementById('status');
+
+        // Replace these with your actual audio asset URLs hosted on bocssain.cymru
+        // Using a public domain percussion sample for testing
+        const testSampleUrl = 'https://actions.google.com/sounds/v1/percussions/ambient_tom.ogg';
+        const SAMPLE_URLS = Array(16).fill(testSampleUrl); 
+        const audioBuffers = new Array(16);
+
+        async function loadSamples() {
+            try {
+                const promises = SAMPLE_URLS.map(async (url, index) => {
+                    const response = await fetch(url);
+                    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                    const arrayBuffer = await response.arrayBuffer();
+                    audioBuffers[index] = await audioCtx.decodeAudioData(arrayBuffer);
+                });
+                
+                await Promise.all(promises);
+                statusEl.textContent = 'System Ready. Tap a pad to unlock audio.';
+                statusEl.style.color = '#888';
+            } catch (err) {
+                console.error('Audio asset loading failed:', err);
+                statusEl.textContent = 'Error: Failed to fetch audio buffers (Check CORS or paths).';
+            }
+        }
+
+        function playSample(index) {
+            if (!audioBuffers[index]) return;
+
+            // Instantiate a transient BufferSource for low latency
+            const source = audioCtx.createBufferSource();
+            source.buffer = audioBuffers[index];
+            source.connect(audioCtx.destination);
+            
+            // Execute immediately on the hardware audio thread
+            source.start(0);
+        }
+
+        function initPads() {
+            for (let i = 0; i < 16; i++) {
+                const pad = document.createElement('button');
+                pad.className = 'pad';
+                pad.dataset.index = i;
+
+                // pointerdown bypasses the 300ms mobile click delay entirely
+                pad.addEventListener('pointerdown', (e) => {
+                    // Prevent default touch behavior (scrolling/emulated mouse events)
+                    e.preventDefault();
+                    
+                    // iOS/Chrome constraint: AudioContext is suspended until a physical user interaction
+                    if (audioCtx.state === 'suspended') {
+                        audioCtx.resume().then(() => {
+                            statusEl.textContent = 'Audio Context: Active';
+                            statusEl.style.color = '#00ff88';
+                        });
+                    }
+                    
+                    playSample(i);
+                    
+                    // Visual feedback fallback if CSS :active is sluggish on the specific OS
+                    pad.classList.add('active');
+                    setTimeout(() => pad.classList.remove('active'), 100);
+                });
+
+                // Failsafe to clean up visual state if pointer slides off the pad
+                pad.addEventListener('pointerup', () => pad.classList.remove('active'));
+                pad.addEventListener('pointerleave', () => pad.classList.remove('active'));
+
+                padGrid.appendChild(pad);
+            }
+        }
+
+        // Initialize system
+        loadSamples().then(initPads);
+    </script>
+</body>
+</html>
