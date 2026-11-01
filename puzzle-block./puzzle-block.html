@@ -2,8 +2,8 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Audio-Visual Jigsaw Symphony</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Musical Audio Slide Symphony</title>
     <style>
         :root {
             --bg-color: #0f172a;
@@ -28,7 +28,6 @@
             user-select: none;
         }
 
-        /* Top Navigation & Mode Switcher */
         #top-bar {
             width: 100%; 
             max-width: 440px; 
@@ -50,6 +49,7 @@
         }
         #homeBtn:hover { background: #475569; }
 
+        /* Top Mode Selector */
         .mode-selector {
             display: flex;
             gap: 6px;
@@ -128,7 +128,7 @@
         .btn-image { background: #a855f7; color: #fff; }
         .btn-record { background: #f59e0b; color: #0f172a; }
         .btn-record.recording { background: #ef4444; color: #fff; animation: pulseRecord 1s infinite; }
-        .btn-shuffle { background: #6366f1; color: #fff; display: none; }
+        .btn-random { background: #6366f1; color: #fff; display: none; }
         #refBtn { background: #22c55e; color: #fff; display: none; }
         #stopBtn { background: #ef4444; color: #fff; display: none; }
 
@@ -165,7 +165,7 @@
         }
         .piece { 
             background: rgba(30, 41, 59, 0.95); 
-            cursor: grab; 
+            cursor: pointer; 
             border-radius: 6px; 
             border: 2px solid #475569; 
             overflow: hidden; 
@@ -174,14 +174,21 @@
             align-items: center; 
             justify-content: center;
             position: relative; 
-            touch-action: none; 
-            transition: border-color 0.2s, transform 0.1s;
+            touch-action: manipulation; 
+            transition: border-color 0.2s, transform 0.1s, background-color 0.2s;
             font-size: 1.8rem;
             color: #64748b;
         }
-        .piece:active { cursor: grabbing; transform: scale(0.96); }
+        .piece:active { transform: scale(0.96); }
         .piece.correct { border-color: #0ea5e9; }
-        .piece.dragging { opacity: 0.5; border-style: dashed; }
+        
+        .piece.empty {
+            background: #0f172a !important;
+            border: 2px dashed #334155 !important;
+            cursor: default;
+            box-shadow: inset 0px 0px 10px rgba(0,0,0,0.5);
+            background-image: none !important;
+        }
 
         #status { 
             margin: 14px 0 6px; 
@@ -270,9 +277,9 @@
 
     <!-- Mode Selector Navigation -->
     <div class="mode-selector">
-        <button class="mode-btn active" id="btn-mode-easy" onclick="setMode('easy')">Easy (Visual)</button>
+        <button class="mode-btn active" id="btn-mode-easy" onclick="setMode('easy')">Easy (Audio & Image)</button>
         <button class="mode-btn" id="btn-mode-medium" onclick="setMode('medium')">Medium (Waveform)</button>
-        <button class="mode-btn" id="btn-mode-hard" onclick="setMode('hard')">Hard (Pure Ear)</button>
+        <button class="mode-btn" id="btn-mode-hard" onclick="setMode('hard')">Hard (Pure Audio)</button>
     </div>
 
     <div id="controls">
@@ -287,7 +294,7 @@
         </label>
         
         <button id="recordBtn" class="btn btn-record">🎤 RECORD</button>
-        <button id="shuffleBtn" class="btn btn-shuffle" onclick="manualShuffle()">🧩 SHUFFLE</button>
+        <button id="randomBtn" class="btn btn-random" onclick="manualShuffle()">🔀 SHUFFLE</button>
         <button id="refBtn" class="btn" onclick="playReference()">REF AUDIO</button>
         <button id="stopBtn" class="btn" onclick="stopEverything()">STOP</button>
     </div>
@@ -297,7 +304,7 @@
         <div id="grid" style="--cols: 3;"></div>
     </div>
 
-    <p id="status">Upload audio to begin assembling the puzzle!</p>
+    <p id="status">Upload or record audio to build your sliding puzzle!</p>
 
     <!-- Piano Keyboard Section -->
     <div class="keyboard-wrapper">
@@ -317,7 +324,7 @@
         let gridSize = 3; 
         let totalPieces = gridSize * gridSize;
         let pieces = [];
-        let draggedIdx = null; 
+        let emptyIndex = null;
         
         let waveformImageSrc = null; 
         let uploadedImageSrc = null;
@@ -351,10 +358,30 @@
             render();
         }
 
+        function isSolvable(arr, width) {
+            let inversions = 0;
+            const values = arr.filter(v => v !== null);
+            for (let i = 0; i < values.length; i++) {
+                for (let j = i + 1; j < values.length; j++) {
+                    if (values[i] > values[j]) inversions++;
+                }
+            }
+            if (width % 2 !== 0) {
+                return inversions % 2 === 0;
+            } else {
+                const emptyRow = Math.floor(arr.indexOf(null) / width);
+                const rowFromBottom = width - emptyRow;
+                return (rowFromBottom % 2 === 0) ? (inversions % 2 !== 0) : (inversions % 2 === 0);
+            }
+        }
+
         function scramblePieces() {
+            let pool = Array.from({length: totalPieces - 1}, (_, i) => i);
             do {
-                pieces = Array.from({length: totalPieces}, (_, i) => i).sort(() => Math.random() - 0.5);
-            } while (pieces.every((p, i) => p === i) && totalPieces > 1);
+                pool.sort(() => Math.random() - 0.5);
+                pieces = [...pool, null];
+            } while (!isSolvable(pieces, gridSize) || pieces.every((p, i) => (i === totalPieces - 1 ? p === null : p === i)));
+            emptyIndex = totalPieces - 1;
         }
         scramblePieces(); 
 
@@ -363,9 +390,8 @@
             stopEverything();
             scramblePieces();
             document.getElementById('grid-container').classList.remove('victory');
-            document.getElementById('status').innerText = "Matrix randomized! Match the frequencies.";
+            document.getElementById('status').innerText = "Matrix scrambled! Slide the tiles into position.";
             render();
-            playSlice(pieces[0]);
         }
 
         function changeGridSize(dir) {
@@ -460,9 +486,9 @@
                 
                 document.getElementById('refBtn').style.display = 'inline-block';
                 document.getElementById('stopBtn').style.display = 'inline-block';
-                document.getElementById('shuffleBtn').style.display = 'inline-block';
+                document.getElementById('randomBtn').style.display = 'inline-block';
                 
-                status.innerText = "Audio loaded! Click slices to listen, drag to assemble.";
+                status.innerText = "Audio loaded! Slide the pieces adjacent to the empty spot.";
                 
                 scramblePieces();
                 document.getElementById('grid-container').classList.remove('victory');
@@ -536,7 +562,7 @@
         }
 
         function playSlice(idx) {
-            if (!mainBuffer) return;
+            if (!mainBuffer || idx === null) return;
             stopEverything(); 
             const source = audioCtx.createBufferSource();
             const gainNode = audioCtx.createGain();
@@ -656,11 +682,33 @@
             }
         }
 
+        function handleTileClick(index) {
+            const row = Math.floor(index / gridSize);
+            const col = index % gridSize;
+            const emptyRow = Math.floor(emptyIndex / gridSize);
+            const emptyCol = emptyIndex % gridSize;
+
+            const isAdjacent = (Math.abs(row - emptyRow) + Math.abs(col - emptyCol)) === 1;
+
+            if (isAdjacent) {
+                const movedPiece = pieces[index];
+                pieces[emptyIndex] = movedPiece;
+                pieces[index] = null;
+                emptyIndex = index;
+                
+                playSlice(movedPiece);
+                render();
+            } else if (pieces[index] !== null) {
+                playSlice(pieces[index]);
+            }
+        }
+
         function render() {
             const grid = document.getElementById('grid');
             const container = document.getElementById('grid-container');
             grid.innerHTML = '';
-            const isSolved = pieces.every((p, i) => p === i);
+            
+            const isSolved = pieces.every((p, i) => (i === totalPieces - 1 ? p === null : p === i));
 
             let activePieceBg = null;
             if (currentMode === 'easy') {
@@ -672,65 +720,35 @@
             pieces.forEach((pIdx, i) => {
                 const div = document.createElement('div');
                 div.className = `piece ${pIdx === i ? 'correct' : ''}`;
-                div.setAttribute('data-index', i);
                 
-                const origCol = pIdx % gridSize;
-                const origRow = Math.floor(pIdx / gridSize);
-                
-                if (currentMode === 'hard') {
-                    div.style.backgroundImage = 'none';
-                    div.textContent = '🎵';
+                if (pIdx === null) {
+                    div.classList.add('empty');
                 } else {
-                    div.textContent = '';
-                    if (activePieceBg) {
-                        div.style.backgroundImage = `url(${activePieceBg})`;
-                        div.style.backgroundSize = `${gridSize * 100}% ${gridSize * 100}%`;
-                        div.style.backgroundPosition = `${(origCol / (gridSize - 1)) * 100}% ${(origRow / (gridSize - 1)) * 100}%`;
-                    } else {
+                    const origCol = pIdx % gridSize;
+                    const origRow = Math.floor(pIdx / gridSize);
+                    
+                    if (currentMode === 'hard') {
                         div.style.backgroundImage = 'none';
-                    }
-                }
-
-                // Drag and drop controls
-                div.draggable = true;
-                div.ondragstart = (e) => { draggedIdx = i; div.classList.add('dragging'); e.dataTransfer.setData('text/plain', i); };
-                div.ondragend = () => div.classList.remove('dragging');
-                div.ondragover = (e) => e.preventDefault();
-                div.ondrop = (e) => { 
-                    e.preventDefault(); 
-                    const from = draggedIdx !== null ? draggedIdx : e.dataTransfer.getData('text'); 
-                    executeSwap(parseInt(from), i); 
-                };
-
-                // Touch support
-                div.addEventListener('touchstart', (e) => { if(e.touches.length === 1) draggedIdx = i; }, {passive: true});
-                div.addEventListener('touchend', (e) => {
-                    const changedTouch = e.changedTouches[0];
-                    const targetEl = document.elementFromPoint(changedTouch.clientX, changedTouch.clientY);
-                    const dropZone = targetEl ? targetEl.closest('.piece') : null;
-                    if (dropZone) {
-                        const toIndex = parseInt(dropZone.getAttribute('data-index'));
-                        if (draggedIdx !== null && draggedIdx !== toIndex) executeSwap(draggedIdx, toIndex);
-                        else playSlice(pIdx);
+                        div.textContent = '🎵';
                     } else {
-                        playSlice(pIdx);
+                        div.textContent = '';
+                        if (activePieceBg) {
+                            div.style.backgroundImage = `url(${activePieceBg})`;
+                            div.style.backgroundSize = `${gridSize * 100}% ${gridSize * 100}%`;
+                            div.style.backgroundPosition = `${(origCol / (gridSize - 1)) * 100}% ${(origRow / (gridSize - 1)) * 100}%`;
+                        } else {
+                            div.style.backgroundImage = 'none';
+                        }
                     }
-                    draggedIdx = null;
-                });
 
-                div.onclick = (e) => { if(e.pointerType === 'mouse' || e.type === 'click') playSlice(pIdx); };
+                    div.onclick = () => handleTileClick(i);
+                }
+                
                 grid.appendChild(div);
             });
 
-            function executeSwap(from, to) {
-                if (isNaN(from) || isNaN(to)) return;
-                [pieces[from], pieces[to]] = [pieces[to], pieces[from]];
-                playSlice(pieces[to]);
-                render();
-            }
-
             if (isSolved && mainBuffer) { 
-                document.getElementById('status').innerText = "🎉 PUZZLE MASTERED!";
+                document.getElementById('status').innerText = "🎉 SLIDER SOLVED PERFECTLY!";
                 container.classList.add('victory');
                 playReference();
             }
