@@ -3,39 +3,132 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Audio & Image Slider Module</title>
+    <title>Musical Audio Slide Symphony</title>
     <style>
+        :root {
+            --bg-color: #0f172a;
+            --accent-cyan: #38bdf8;
+            --accent-purple: #a855f7;
+            --panel-bg: #1e293b;
+        }
+
         body { 
-            background: #0f172a; color: #38bdf8; font-family: sans-serif; 
-            display: flex; flex-direction: column; align-items: center; justify-content: flex-start; 
-            min-height: 100vh; margin: 0; padding: 20px 10px; overflow-x: hidden;
-            -webkit-user-select: none; user-select: none;
+            background: var(--bg-color); 
+            color: var(--accent-cyan); 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            display: flex; 
+            flex-direction: column; 
+            align-items: center; 
+            justify-content: flex-start; 
+            min-height: 100vh; 
+            margin: 0; 
+            padding: 20px 10px 40px; 
+            overflow-x: hidden;
+            -webkit-user-select: none; 
+            user-select: none;
         }
 
         #top-bar {
-            width: 100%; max-width: 400px; display: flex; justify-content: space-between; 
-            align-items: center; margin-bottom: 20px;
+            width: 100%; 
+            max-width: 440px; 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            margin-bottom: 12px;
         }
-        #homeBtn { background: #334155; color: #fff; padding: 10px 15px; font-size: 0.9rem; border: none; border-radius: 8px; font-weight: bold; cursor: pointer;}
-        
-        #grid-controls { display: flex; align-items: center; gap: 10px; background: #1e293b; padding: 5px; border-radius: 8px;}
-        .stepper-btn { background: #334155; color: white; border: none; border-radius: 6px; padding: 8px 12px; font-size: 1rem; cursor: pointer; touch-action: manipulation; }
-        .stepper-btn:active { background: #475569; }
-        #grid-size-label { font-weight: bold; width: 40px; text-align: center; color: #fff; }
+        #homeBtn { 
+            background: #334155; 
+            color: #fff; 
+            padding: 9px 14px; 
+            font-size: 0.9rem; 
+            border: none; 
+            border-radius: 8px; 
+            font-weight: bold; 
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        #homeBtn:hover { background: #475569; }
 
-        #controls { margin-bottom: 20px; display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; width: 100%; max-width: 420px;}
-        .btn { 
-            padding: 10px 14px; border-radius: 8px; border: none; font-size: 0.85rem;
-            font-weight: bold; cursor: pointer; transition: 0.2s; 
-            display: flex; align-items: center; justify-content: center;
+        /* Top Mode Selector */
+        .mode-selector {
+            display: flex;
+            gap: 6px;
+            background: #1e293b;
+            padding: 5px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            width: 100%;
+            max-width: 440px;
+            box-sizing: border-box;
+            justify-content: center;
         }
-        
+        .mode-btn {
+            flex: 1;
+            background: transparent;
+            color: #94a3b8;
+            border: none;
+            padding: 8px 6px;
+            font-size: 0.8rem;
+            font-weight: bold;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-align: center;
+        }
+        .mode-btn:hover { color: #fff; }
+        .mode-btn.active {
+            background: var(--accent-cyan);
+            color: #0f172a;
+            box-shadow: 0 2px 6px rgba(56, 189, 248, 0.35);
+        }
+
+        #grid-controls { 
+            display: flex; 
+            align-items: center; 
+            gap: 10px; 
+            background: var(--panel-bg); 
+            padding: 5px; 
+            border-radius: 8px;
+        }
+        .stepper-btn { 
+            background: #334155; 
+            color: white; 
+            border: none; 
+            border-radius: 6px; 
+            padding: 7px 11px; 
+            font-size: 0.95rem; 
+            cursor: pointer; 
+            touch-action: manipulation; 
+        }
+        .stepper-btn:active { background: #475569; }
+        #grid-size-label { font-weight: bold; width: 36px; text-align: center; color: #fff; font-size: 0.9rem; }
+
+        #controls { 
+            margin-bottom: 16px; 
+            display: flex; 
+            gap: 8px; 
+            flex-wrap: wrap; 
+            justify-content: center; 
+            width: 100%; 
+            max-width: 440px;
+        }
+        .btn { 
+            padding: 9px 13px; 
+            border-radius: 8px; 
+            border: none; 
+            font-size: 0.85rem;
+            font-weight: bold; 
+            cursor: pointer; 
+            transition: 0.2s; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center;
+        }
         .btn-audio { background: #38bdf8; color: #0f172a; }
         .btn-image { background: #a855f7; color: #fff; }
         .btn-record { background: #f59e0b; color: #0f172a; }
         .btn-record.recording { background: #ef4444; color: #fff; animation: pulseRecord 1s infinite; }
         .btn-random { background: #6366f1; color: #fff; display: none; }
-        
         #refBtn { background: #22c55e; color: #fff; display: none; }
         #stopBtn { background: #ef4444; color: #fff; display: none; }
 
@@ -46,38 +139,123 @@
         }
 
         #grid-container { 
-            position: relative; padding: 10px; background: #1e293b; 
-            border-radius: 12px; transition: all 0.5s ease;
-            width: 100%; max-width: 400px; box-sizing: border-box;
+            position: relative; 
+            padding: 10px; 
+            background: var(--panel-bg); 
+            border-radius: 12px; 
+            transition: all 0.4s ease;
+            width: 100%; 
+            max-width: 400px; 
+            box-sizing: border-box;
         }
         #ghost-wave { 
-            position: absolute; top: 10px; left: 10px; right: 10px; bottom: 10px;
-            width: calc(100% - 20px); height: calc(100% - 20px); opacity: 0.2; pointer-events: none; 
+            position: absolute; 
+            top: 10px; left: 10px; right: 10px; bottom: 10px;
+            width: calc(100% - 20px); 
+            height: calc(100% - 20px); 
+            opacity: 0.2; 
+            pointer-events: none; 
         }
         #grid { 
             display: grid; 
             grid-template-columns: repeat(var(--cols, 3), 1fr); 
-            gap: 6px; width: 100%; position: relative; 
+            gap: 6px; 
+            width: 100%; 
+            position: relative; 
         }
         .piece { 
-            background: rgba(30, 41, 59, 0.9); cursor: pointer; border-radius: 6px; 
-            border: 2px solid #475569; overflow: hidden; aspect-ratio: 1 / 1;
-            display: flex; align-items: center; justify-content: center;
-            position: relative; touch-action: manipulation; transition: border-color 0.2s, transform 0.1s;
+            background: #334155; 
+            cursor: pointer; 
+            border-radius: 6px; 
+            border: 2px solid #475569; 
+            overflow: hidden; 
+            aspect-ratio: 1 / 1;
+            display: flex; 
+            align-items: center; 
+            justify-content: center;
+            position: relative; 
+            touch-action: manipulation; 
+            transition: border-color 0.2s, transform 0.1s, background-color 0.2s;
+            font-size: 1.8rem;
+            color: #64748b;
         }
-        .piece:active { transform: scale(0.96); }
+        .piece:active { transform: scale(0.96); background: #475569; }
         .piece.correct { border-color: #0ea5e9; }
         
-        /* Style for the true blank/missing slide slot */
+        /* Blank/missing slide slot */
         .piece.empty {
             background: #0f172a !important;
-            border: 2px dashed #334155;
+            border: 2px dashed #334155 !important;
             cursor: default;
             box-shadow: inset 0px 0px 10px rgba(0,0,0,0.5);
+            background-image: none !important;
         }
-        
-        canvas { width: 100%; height: 100%; pointer-events: none; display: block; }
-        #status { margin-top: 20px; font-weight: bold; min-height: 20px; text-align: center; font-size: 0.9rem;}
+
+        #status { 
+            margin: 14px 0 6px; 
+            font-weight: bold; 
+            min-height: 20px; 
+            text-align: center; 
+            font-size: 0.9rem;
+            max-width: 420px;
+            line-height: 1.4;
+        }
+
+        /* Keyboard Styles */
+        .keyboard-wrapper {
+            margin-top: 18px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .keyboard-title {
+            font-size: 0.75rem;
+            letter-spacing: 1px;
+            color: #94a3b8;
+            margin-bottom: 6px;
+            text-transform: uppercase;
+            font-weight: bold;
+        }
+        .keyboard-container {
+            display: flex;
+            background: #1e293b;
+            padding: 8px 12px;
+            border-radius: 8px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+            position: relative;
+        }
+        .piano-key {
+            width: 32px;
+            height: 105px;
+            background: white;
+            border: 1px solid #cbd5e1;
+            border-radius: 0 0 4px 4px;
+            cursor: pointer;
+            display: flex;
+            align-items: flex-end;
+            justify-content: center;
+            padding-bottom: 6px;
+            font-weight: bold;
+            font-size: 0.8rem;
+            color: #334155;
+            user-select: none;
+            position: relative;
+            z-index: 1;
+            transition: background 0.1s;
+        }
+        .piano-key.black {
+            width: 20px;
+            height: 65px;
+            background: #0f172a;
+            color: transparent;
+            margin-left: -10px;
+            margin-right: -10px;
+            z-index: 2;
+            border-radius: 0 0 3px 3px;
+            border: 1px solid #334155;
+        }
+        .piano-key.active-white { background: var(--accent-cyan) !important; color: #0f172a; }
+        .piano-key.active-black { background: #0284c7 !important; }
 
         @keyframes pulse {
             0% { transform: scale(1); box-shadow: 0 0 0px #38bdf8; }
@@ -90,12 +268,19 @@
 <body>
 
     <div id="top-bar">
-       <button id="homeBtn" onclick="window.location.href='/Clean-start/index.html'">◀ Home</button>
+        <button id="homeBtn" onclick="window.location.href='/Clean-start/index.html'">◀ Home</button>
         <div id="grid-controls">
             <button class="stepper-btn" onclick="changeGridSize(-1)">➖</button>
             <span id="grid-size-label">3x3</span>
             <button class="stepper-btn" onclick="changeGridSize(1)">➕</button>
         </div>
+    </div>
+
+    <!-- Mode Selector Navigation -->
+    <div class="mode-selector">
+        <button class="mode-btn active" id="btn-mode-easy" onclick="setMode('easy')">Easy (Audio & Image)</button>
+        <button class="mode-btn" id="btn-mode-medium" onclick="setMode('medium')">Medium (Waveform)</button>
+        <button class="mode-btn" id="btn-mode-hard" onclick="setMode('hard')">Hard (Pure Audio)</button>
     </div>
 
     <div id="controls">
@@ -104,15 +289,13 @@
             <input type="file" id="audioUpload" accept="audio/*" style="display: none;">
         </label>
 
-        <label class="btn btn-image">
-            📷 LOAD IMAGE
+        <label class="btn btn-image" id="labelImageUpload">
+            🖼️ LOAD IMAGE
             <input type="file" id="imageUpload" accept="image/*" style="display: none;">
         </label>
         
         <button id="recordBtn" class="btn btn-record">🎤 RECORD</button>
-        
-        <button id="randomBtn" class="btn btn-random">🔀 SHUFFLE</button>
-        
+        <button id="randomBtn" class="btn btn-random" onclick="manualShuffle()">🔀 SHUFFLE</button>
         <button id="refBtn" class="btn" onclick="playReference()">REF AUDIO</button>
         <button id="stopBtn" class="btn" onclick="stopEverything()">STOP</button>
     </div>
@@ -122,7 +305,13 @@
         <div id="grid" style="--cols: 3;"></div>
     </div>
 
-    <p id="status">Upload audio or an image to build your sliding puzzle!</p>
+    <p id="status">Upload audio or record to build your sliding puzzle!</p>
+
+    <!-- Piano Keyboard Section -->
+    <div class="keyboard-wrapper">
+        <div class="keyboard-title">Pitch Reference Keyboard</div>
+        <div class="keyboard-container" id="piano-keyboard"></div>
+    </div>
 
     <script>
         let audioCtx, mainBuffer;
@@ -132,13 +321,44 @@
         let audioChunks = [];
         let isRecording = false;
         
+        let currentMode = 'easy'; // 'easy' | 'medium' | 'hard'
         let gridSize = 3; 
         let totalPieces = gridSize * gridSize;
         let pieces = [];
-        let waveformImageSrc = null;
-        let userLoadedImage = null; 
+        
+        let waveformImageSrc = null; 
+        let userLoadedImage = null;
 
-        // Valid random walk algorithm to guarantee solvability
+        const noteFrequencies = {
+            'C': 261.63, 'C#': 277.18, 'D': 293.66, 'D#': 311.13,
+            'E': 329.63, 'F': 349.23, 'F#': 369.99, 'G': 392.00,
+            'G#': 415.30, 'A': 440.00, 'A#': 466.16, 'B': 493.88
+        };
+
+        function setMode(mode) {
+            currentMode = mode;
+            document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+            document.getElementById(`btn-mode-${mode}`).classList.add('active');
+
+            const imgUploadBtn = document.getElementById('labelImageUpload');
+            const ghostCanvas = document.getElementById('ghost-wave');
+
+            if (mode === 'easy') {
+                imgUploadBtn.style.display = 'inline-flex';
+                ghostCanvas.style.display = 'block';
+            } else if (mode === 'medium') {
+                imgUploadBtn.style.display = 'none';
+                ghostCanvas.style.display = 'block';
+            } else if (mode === 'hard') {
+                imgUploadBtn.style.display = 'none';
+                ghostCanvas.style.display = 'none';
+            }
+
+            generateWaveformGridImage();
+            render();
+        }
+
+        // Guaranteed-solvable random walk
         function scramblePieces() {
             pieces = Array.from({length: totalPieces}, (_, i) => i);
             let emptyIdx = totalPieces - 1; 
@@ -165,6 +385,15 @@
         }
         scramblePieces(); 
 
+        function manualShuffle() {
+            if (!mainBuffer && !userLoadedImage) return;
+            stopEverything();
+            scramblePieces();
+            document.getElementById('grid-container').classList.remove('victory');
+            document.getElementById('status').innerText = "Matrix scrambled! Slide the tiles adjacent to the gap.";
+            render();
+        }
+
         function changeGridSize(dir) {
             let newSize = gridSize + dir;
             if (newSize >= 3 && newSize <= 5) {
@@ -186,15 +415,6 @@
             }
         }
 
-        // --- NEW SHUFFLE BUTTON HANDLER ---
-        document.getElementById('randomBtn').addEventListener('click', () => {
-            if (!mainBuffer && !userLoadedImage) return;
-            scramblePieces();
-            document.getElementById('grid-container').classList.remove('victory');
-            document.getElementById('status').innerText = "Matrix scrambled! Good luck.";
-            render();
-        });
-
         function initAudioCtx() {
             if (!audioCtx) {
                 audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -202,6 +422,59 @@
             if (audioCtx.state === 'suspended') {
                 audioCtx.resume();
             }
+        }
+
+        function playSynthTone(note, duration = 0.4) {
+            const freq = noteFrequencies[note];
+            if (!freq) return;
+            initAudioCtx();
+
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+
+            gain.gain.setValueAtTime(0.25, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + duration);
+
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+
+            osc.start();
+            osc.stop(audioCtx.currentTime + duration);
+
+            highlightKey(note, duration * 1000);
+        }
+
+        function highlightKey(note, durationMs) {
+            const el = document.getElementById(`key-${note}`);
+            if (!el) return;
+            const isBlack = el.classList.contains('black');
+            const activeClass = isBlack ? 'active-black' : 'active-white';
+            el.classList.add(activeClass);
+            setTimeout(() => el.classList.remove(activeClass), durationMs);
+        }
+
+        function buildKeyboard() {
+            const keyboard = document.getElementById('piano-keyboard');
+            keyboard.innerHTML = '';
+            const layout = [
+                { note: 'C', black: false }, { note: 'C#', black: true },
+                { note: 'D', black: false }, { note: 'D#', black: true },
+                { note: 'E', black: false }, { note: 'F', black: false },
+                { note: 'F#', black: true }, { note: 'G', black: false },
+                { note: 'G#', black: true }, { note: 'A', black: false },
+                { note: 'A#', black: true }, { note: 'B', black: false }
+            ];
+            layout.forEach(k => {
+                const el = document.createElement('div');
+                el.className = `piano-key ${k.black ? 'black' : ''}`;
+                el.id = `key-${k.note}`;
+                if (!k.black) el.textContent = k.note;
+                el.addEventListener('mousedown', () => playSynthTone(k.note));
+                keyboard.appendChild(el);
+            });
         }
 
         async function processAudioData(arrayBuffer) {
@@ -214,7 +487,7 @@
                 document.getElementById('stopBtn').style.display = 'inline-block';
                 document.getElementById('randomBtn').style.display = 'inline-block';
                 
-                status.innerText = "Audio parsed. Click or tap blocks adjacent to the dark gap to slide them!";
+                status.innerText = "Audio loaded! Slide the blocks adjacent to the gap to solve.";
                 
                 scramblePieces();
                 document.getElementById('grid-container').classList.remove('victory');
@@ -244,9 +517,8 @@
                 const img = new Image();
                 img.onload = function() {
                     userLoadedImage = img;
-                    
                     document.getElementById('randomBtn').style.display = 'inline-block';
-                    document.getElementById('status').innerText = "Image loaded! Slide the tiles to rebuild it.";
+                    document.getElementById('status').innerText = "Image loaded! Slide tiles to rebuild.";
                     
                     scramblePieces();
                     document.getElementById('grid-container').classList.remove('victory');
@@ -281,7 +553,7 @@
                     recordBtn.classList.add('recording');
                     status.innerText = "🔴 Capturing mic feed...";
                 } catch (err) {
-                    status.innerText = "❌ Mic feed dropped.";
+                    status.innerText = "❌ Microphone access failed.";
                     console.error(err);
                 }
             } else {
@@ -298,9 +570,7 @@
         }
 
         function playSlice(idx) {
-            if (!mainBuffer) return;
-            if (idx === totalPieces - 1) return;
-
+            if (!mainBuffer || idx === totalPieces - 1) return;
             stopEverything(); 
             const source = audioCtx.createBufferSource();
             const gainNode = audioCtx.createGain();
@@ -357,8 +627,7 @@
             canvas.height = size;
             const ctx = canvas.getContext('2d');
             
-            // If image is loaded, draw just the image. Otherwise draw the dark background + waveform
-            if (userLoadedImage) {
+            if (currentMode === 'easy' && userLoadedImage) {
                 ctx.drawImage(userLoadedImage, 0, 0, size, size);
             } else {
                 ctx.fillStyle = '#1e293b';
@@ -377,7 +646,6 @@
                     for (let row = 0; row < gridSize; row++) {
                         for (let col = 0; col < gridSize; col++) {
                             const cellIndex = (row * gridSize) + col;
-                            
                             if (cellIndex === totalPieces - 1) continue;
 
                             const startX = col * cellSize;
@@ -405,9 +673,17 @@
             waveformImageSrc = canvas.toDataURL();
 
             const ghostCanvas = document.getElementById('ghost-wave');
-            ghostCanvas.width = size; ghostCanvas.height = size;
-            const gCtx = ghostCanvas.getContext('2d');
-            gCtx.drawImage(canvas, 0, 0);
+            if (currentMode === 'hard') {
+                ghostCanvas.style.display = 'none';
+            } else {
+                ghostCanvas.style.display = 'block';
+                ghostCanvas.width = size; 
+                ghostCanvas.height = size;
+                const gCtx = ghostCanvas.getContext('2d');
+                gCtx.clearRect(0, 0, size, size);
+                gCtx.globalAlpha = 0.15;
+                gCtx.drawImage(canvas, 0, 0, size, size);
+            }
         }
 
         function render() {
@@ -430,7 +706,9 @@
                     const origCol = pIdx % gridSize;
                     const origRow = Math.floor(pIdx / gridSize);
                     
-                    if (waveformImageSrc) {
+                    if (currentMode === 'hard') {
+                        div.style.backgroundImage = 'none';
+                    } else if (waveformImageSrc) {
                         div.style.backgroundImage = `url(${waveformImageSrc})`;
                         div.style.backgroundSize = `${gridSize * 100}% ${gridSize * 100}%`;
                         div.style.backgroundPosition = `${(origCol / (gridSize - 1)) * 100}% ${(origRow / (gridSize - 1)) * 100}%`;
@@ -465,13 +743,16 @@
             });
 
             if (isSolved && (mainBuffer || userLoadedImage)) { 
-                document.getElementById('status').innerText = "🎉 PUZZLE SOLVED SUCCESSFULLY!";
+                document.getElementById('status').innerText = "🎉 SLIDER SOLVED SUCCESSFULLY!";
                 container.classList.add('victory');
                 if (mainBuffer) playReference();
             }
         }
         
-        render();
+        window.addEventListener('DOMContentLoaded', () => {
+            buildKeyboard();
+            setMode('easy');
+        });
     </script>
 </body>
 </html>
