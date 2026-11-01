@@ -10,14 +10,15 @@
     <style>
         :root {
             --bg-color: #0b0f19;
-            --panel-bg: rgba(15, 23, 42, 0.88);
+            --panel-bg: rgba(15, 23, 42, 0.90);
             --accent-cyan: #38bdf8;
             --accent-red: #ef4444;
             --accent-green: #10b981;
+            --accent-amber: #f59e0b;
             --text-color: #e2e8f0;
         }
 
-        * { box-sizing: border-box; user-select: none; }
+        * { box-sizing: border-box; user-select: none; -webkit-tap-highlight-color: transparent; }
         body {
             margin: 0;
             padding: 0;
@@ -27,6 +28,7 @@
             overflow: hidden;
             width: 100vw;
             height: 100vh;
+            touch-action: none;
         }
 
         #canvas-container {
@@ -50,17 +52,18 @@
             display: flex;
             flex-direction: column;
             justify-content: space-between;
-            padding: 14px;
+            padding: 10px;
         }
 
         .hud-panel {
             background: var(--panel-bg);
-            backdrop-filter: blur(10px);
+            backdrop-filter: blur(12px);
             border: 1px solid rgba(56, 189, 248, 0.25);
             border-radius: 12px;
-            padding: 12px 16px;
+            padding: 10px 14px;
             pointer-events: auto;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.55);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
         #top-bar {
@@ -68,26 +71,26 @@
             justify-content: space-between;
             align-items: center;
             flex-wrap: wrap;
-            gap: 10px;
+            gap: 8px;
         }
 
         .left-controls {
             display: flex;
             align-items: center;
-            gap: 12px;
+            gap: 10px;
         }
 
         h1 {
             margin: 0;
-            font-size: 1rem;
-            letter-spacing: 1px;
+            font-size: 0.95rem;
+            letter-spacing: 0.5px;
             color: var(--accent-cyan);
             text-transform: uppercase;
         }
 
         .btn-group {
             display: flex;
-            gap: 8px;
+            gap: 6px;
             align-items: center;
             flex-wrap: wrap;
         }
@@ -96,38 +99,57 @@
             background: var(--accent-cyan);
             color: #0b0f19;
             border: none;
-            padding: 8px 14px;
+            padding: 7px 12px;
             border-radius: 8px;
             font-weight: 700;
-            font-size: 0.8rem;
+            font-size: 0.78rem;
             cursor: pointer;
-            transition: all 0.2s ease;
+            transition: all 0.15s ease;
             display: inline-flex;
             align-items: center;
             justify-content: center;
             text-decoration: none;
         }
-        button:hover, .btn-label:hover { filter: brightness(1.15); transform: translateY(-1px); }
-        button:active, .btn-label:active { transform: translateY(0); }
+        button:hover, .btn-label:hover { filter: brightness(1.15); }
+        button:active, .btn-label:active { transform: scale(0.96); }
         button.secondary { background: #334155; color: #fff; }
         button.danger { background: var(--accent-red); color: #fff; }
         button.active-toggle { background: var(--accent-green); color: #fff; }
 
+        /* Minimizing utilities */
+        .hud-panel.minimized {
+            padding: 6px 10px;
+            background: rgba(15, 23, 42, 0.65);
+        }
+        .hud-panel.minimized .hide-when-minimized {
+            display: none !important;
+        }
+
         #bottom-panel {
-            max-width: 580px;
+            max-width: 540px;
             margin: 0 auto;
             width: 100%;
             display: flex;
             flex-direction: column;
-            gap: 10px;
+            gap: 8px;
+        }
+
+        .panel-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.75rem;
+            color: #94a3b8;
+            font-weight: 700;
+            margin-bottom: 2px;
         }
 
         .slider-row {
             display: grid;
-            grid-template-columns: 80px 1fr 50px 36px;
+            grid-template-columns: 75px 1fr 50px 32px;
             align-items: center;
             gap: 8px;
-            font-size: 0.8rem;
+            font-size: 0.75rem;
             font-weight: 600;
             color: #94a3b8;
         }
@@ -137,16 +159,13 @@
             accent-color: var(--accent-cyan);
             cursor: pointer;
         }
-        input[type=range]:disabled {
-            opacity: 0.4;
-            cursor: not-allowed;
-        }
+        input[type=range]:disabled { opacity: 0.35; cursor: not-allowed; }
 
         .readout {
             font-family: monospace;
             color: var(--accent-cyan);
             text-align: right;
-            font-size: 0.85rem;
+            font-size: 0.8rem;
         }
 
         .lock-btn {
@@ -154,32 +173,28 @@
             color: #94a3b8;
             border: 1px solid #475569;
             border-radius: 6px;
-            padding: 4px;
-            font-size: 0.85rem;
+            padding: 3px;
+            font-size: 0.8rem;
             cursor: pointer;
-            min-width: 32px;
-            height: 28px;
+            min-width: 30px;
+            height: 26px;
         }
-        .lock-btn.locked {
-            background: #ef4444;
-            color: #fff;
-            border-color: #ef4444;
-        }
+        .lock-btn.locked { background: var(--accent-red); color: #fff; border-color: var(--accent-red); }
 
-        #instructions {
+        #touch-hint {
             position: absolute;
-            bottom: 16px;
-            left: 16px;
-            font-size: 0.75rem;
+            bottom: 8px;
+            left: 12px;
+            font-size: 0.72rem;
             color: #64748b;
-            line-height: 1.4;
+            pointer-events: none;
         }
 
-        @media (max-width: 680px) {
-            #instructions { display: none; }
-            #top-bar { justify-content: center; }
-            h1 { width: 100%; text-align: center; }
-            .btn-group { justify-content: center; }
+        @media (max-width: 650px) {
+            #touch-hint { display: none; }
+            #top-bar { justify-content: space-between; }
+            .btn-group { gap: 4px; }
+            button, .btn-label { padding: 6px 8px; font-size: 0.72rem; }
         }
     </style>
 </head>
@@ -192,50 +207,56 @@
     <div id="top-bar" class="hud-panel">
         <div class="left-controls">
             <button id="homeBtn" class="secondary" onclick="window.location.href='/Clean-start/index.html'">◀ HOME</button>
-            <div>
+            <div class="hide-when-minimized">
                 <h1>3D Audio Sphere</h1>
-                <div id="audio-status" style="font-size: 0.72rem; color: #64748b;">ENGINE STANDBY</div>
+                <div id="audio-status" style="font-size: 0.7rem; color: #64748b;">STANDBY</div>
             </div>
         </div>
 
         <div class="btn-group">
-            <label class="btn-label secondary">
-                📁 LOAD AUDIO
+            <label class="btn-label secondary hide-when-minimized">
+                📁 LOAD
                 <input type="file" id="audioUpload" accept="audio/*" style="display: none;">
             </label>
-            <button id="startBtn">START AUDIO</button>
+            <button id="startBtn">▶ PLAY</button>
             <button id="stopBtn" class="danger">⏹ STOP</button>
-            <button id="autoMoveBtn" class="secondary">🔄 AUTO ORBIT: OFF</button>
-            <button id="trackBtn" class="secondary">HEAD TRACK: OFF</button>
-            <button id="resetBtn" class="secondary">RESET</button>
+            <button id="modelBtn" class="secondary hide-when-minimized" title="Toggle between HRTF Pinna modeling and EqualPower stereo">MODEL: HRTF</button>
+            <button id="autoMoveBtn" class="secondary hide-when-minimized">🔄 AUTO: OFF</button>
+            <button id="trackBtn" class="secondary hide-when-minimized">HEAD TRACK: OFF</button>
+            <button id="toggleHudBtn" class="secondary" title="Minimise Windows">👁 HIDE HUD</button>
         </div>
     </div>
 
-    <div id="instructions">
-        • <strong>Left Click + Drag:</strong> Orbit camera around sphere<br>
-        • <strong>Right Click / 2-finger:</strong> Pan camera<br>
-        • <strong>Scroll / Pinch:</strong> Zoom in/out
+    <div id="touch-hint">
+        • <strong>Touch & Drag Sound Orb:</strong> Move audio source in 3D<br>
+        • <strong>Drag Space:</strong> Orbit Camera
     </div>
 
     <!-- Sliders and Axis Locks -->
     <div id="bottom-panel" class="hud-panel">
-        <div class="slider-row">
-            <span>AZIMUTH</span>
-            <input type="range" id="azimuthSlider" min="0" max="360" step="1" value="45">
-            <span class="readout" id="azimuthVal">45°</span>
-            <button id="lockAzimuth" class="lock-btn" title="Lock Azimuth">🔓</button>
+        <div class="panel-header">
+            <span>SPATIAL COORDINATES</span>
+            <button id="minBottomBtn" class="lock-btn" style="width: auto; padding: 2px 8px;" title="Minimize Panel">▼</button>
         </div>
-        <div class="slider-row">
-            <span>ELEVATION</span>
-            <input type="range" id="elevationSlider" min="-90" max="90" step="1" value="0">
-            <span class="readout" id="elevationVal">0°</span>
-            <button id="lockElevation" class="lock-btn" title="Lock Elevation">🔓</button>
-        </div>
-        <div class="slider-row">
-            <span>DISTANCE</span>
-            <input type="range" id="distanceSlider" min="1" max="6" step="0.1" value="3.5">
-            <span class="readout" id="distanceVal">3.5m</span>
-            <button id="lockDistance" class="lock-btn" title="Lock Distance">🔓</button>
+        <div id="slider-content">
+            <div class="slider-row">
+                <span>AZIMUTH</span>
+                <input type="range" id="azimuthSlider" min="0" max="360" step="1" value="45">
+                <span class="readout" id="azimuthVal">45°</span>
+                <button id="lockAzimuth" class="lock-btn" title="Lock Azimuth">🔓</button>
+            </div>
+            <div class="slider-row">
+                <span>ELEVATION</span>
+                <input type="range" id="elevationSlider" min="-90" max="90" step="1" value="0">
+                <span class="readout" id="elevationVal">0°</span>
+                <button id="lockElevation" class="lock-btn" title="Lock Elevation">🔓</button>
+            </div>
+            <div class="slider-row">
+                <span>DISTANCE</span>
+                <input type="range" id="distanceSlider" min="1" max="6" step="0.1" value="3.5">
+                <span class="readout" id="distanceVal">3.5m</span>
+                <button id="lockDistance" class="lock-btn" title="Lock Distance">🔓</button>
+            </div>
         </div>
     </div>
 </div>
@@ -244,63 +265,47 @@
     /* ==========================================================
        1. WEB AUDIO API & HRTF PANNER SETUP
        ========================================================== */
-    let audioCtx, panner, sourceNode = null, oscFallback = null, gainFallback = null;
+    let audioCtx = null, panner = null;
+    let activeSources = [];
     let isRunning = false;
     let trackHead = false;
     let autoMove = false;
     let loadedAudioBuffer = null;
+    let currentPanningModel = 'HRTF'; // 'HRTF' | 'equalpower'
 
-    // Movement Lock States
-    const locks = {
-        azimuth: false,
-        elevation: false,
-        distance: false
-    };
+    const locks = { azimuth: false, elevation: false, distance: false };
 
     function ensureAudioContext() {
         if (!audioCtx) {
             audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
-            // Web Audio coordinate system: listener facing -Z, up +Y
-            if (audioCtx.listener.positionX) {
-                audioCtx.listener.positionX.value = 0;
-                audioCtx.listener.positionY.value = 0;
-                audioCtx.listener.positionZ.value = 0;
-                audioCtx.listener.forwardX.value = 0;
-                audioCtx.listener.forwardY.value = 0;
-                audioCtx.listener.forwardZ.value = -1;
-                audioCtx.listener.upX.value = 0;
-                audioCtx.listener.upY.value = 1;
-                audioCtx.listener.upZ.value = 0;
-            } else {
-                audioCtx.listener.setOrientation(0, 0, -1, 0, 1, 0);
-            }
-
             panner = new PannerNode(audioCtx, {
-                panningModel: 'HRTF',
+                panningModel: currentPanningModel,
                 distanceModel: 'inverse',
                 refDistance: 1.5,
                 maxDistance: 100,
                 rolloffFactor: 1
             });
+            panner.connect(audioCtx.destination);
         }
     }
 
     function stopPlayback() {
-        if (sourceNode) {
-            try { sourceNode.stop(); } catch(e) {}
-            sourceNode.disconnect();
-            sourceNode = null;
+        // Disconnect and stop all active sources immediately
+        activeSources.forEach(s => {
+            try { s.stop(); } catch(e) {}
+            try { s.disconnect(); } catch(e) {}
+        });
+        activeSources = [];
+
+        if (audioCtx && audioCtx.state === 'running') {
+            audioCtx.suspend();
         }
-        if (oscFallback) {
-            try { oscFallback.stop(); } catch(e) {}
-            oscFallback.disconnect();
-            oscFallback = null;
-        }
+
         isRunning = false;
         const startBtn = document.getElementById('startBtn');
         const statusEl = document.getElementById('audio-status');
-        startBtn.innerText = "START AUDIO";
+        startBtn.innerText = "▶ PLAY";
         startBtn.style.opacity = "1";
         statusEl.innerText = "AUDIO STOPPED";
         statusEl.style.color = "#94a3b8";
@@ -309,48 +314,50 @@
     async function startAudio() {
         ensureAudioContext();
         if (audioCtx.state === 'suspended') await audioCtx.resume();
-        stopPlayback();
+        stopPlayback(); // Clean slate
 
         const statusEl = document.getElementById('audio-status');
         const startBtn = document.getElementById('startBtn');
 
         if (loadedAudioBuffer) {
-            sourceNode = audioCtx.createBufferSource();
-            sourceNode.buffer = loadedAudioBuffer;
-            sourceNode.loop = true;
-            sourceNode.connect(panner).connect(audioCtx.destination);
-            sourceNode.start(0);
+            const src = audioCtx.createBufferSource();
+            src.buffer = loadedAudioBuffer;
+            src.loop = true;
+            src.connect(panner);
+            src.start(0);
+            activeSources.push(src);
 
-            statusEl.innerText = "PLAYING: Local File (HRTF)";
+            statusEl.innerText = "PLAYING: Local Audio";
             statusEl.style.color = "#10b981";
         } else {
-            // Attempt to load mysound.mp3
             try {
                 const resp = await fetch('./mysound.mp3');
                 if (!resp.ok) throw new Error("File not found");
                 loadedAudioBuffer = await audioCtx.decodeAudioData(await resp.arrayBuffer());
 
-                sourceNode = audioCtx.createBufferSource();
-                sourceNode.buffer = loadedAudioBuffer;
-                sourceNode.loop = true;
-                sourceNode.connect(panner).connect(audioCtx.destination);
-                sourceNode.start(0);
+                const src = audioCtx.createBufferSource();
+                src.buffer = loadedAudioBuffer;
+                src.loop = true;
+                src.connect(panner);
+                src.start(0);
+                activeSources.push(src);
 
-                statusEl.innerText = "PLAYING: mysound.mp3 (HRTF)";
+                statusEl.innerText = "PLAYING: mysound.mp3";
                 statusEl.style.color = "#38bdf8";
             } catch (e) {
-                // Harmonic Synth demo tone fallback
-                oscFallback = audioCtx.createOscillator();
-                gainFallback = audioCtx.createGain();
-                oscFallback.type = 'triangle';
-                oscFallback.frequency.setValueAtTime(220, audioCtx.currentTime);
-                gainFallback.gain.setValueAtTime(0.12, audioCtx.currentTime);
+                // Synthesizer demo tone fallback
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(220, audioCtx.currentTime);
+                gain.gain.setValueAtTime(0.12, audioCtx.currentTime);
 
-                oscFallback.connect(gainFallback);
-                gainFallback.connect(panner).connect(audioCtx.destination);
-                oscFallback.start();
+                osc.connect(gain);
+                gain.connect(panner);
+                osc.start(0);
+                activeSources.push(osc);
 
-                statusEl.innerText = "SYNTH TONE ACTIVE (Load audio file to replace)";
+                statusEl.innerText = "SYNTH DEMO TONE (Load file to replace)";
                 statusEl.style.color = "#f59e0b";
             }
         }
@@ -361,7 +368,22 @@
         syncSoundPosition();
     }
 
-    // Local file loader
+    // Toggle Panning Model (HRTF vs EqualPower)
+    const modelBtn = document.getElementById('modelBtn');
+    modelBtn.onclick = () => {
+        if (currentPanningModel === 'HRTF') {
+            currentPanningModel = 'equalpower';
+            modelBtn.innerText = "MODEL: STEREO";
+            modelBtn.title = "Clean EqualPower panning (No frequency roll-off)";
+        } else {
+            currentPanningModel = 'HRTF';
+            modelBtn.innerText = "MODEL: HRTF";
+            modelBtn.title = "Anatomical HRTF (Simulates head & ear pinna filtering)";
+        }
+        if (panner) panner.panningModel = currentPanningModel;
+    };
+
+    // Audio upload
     document.getElementById('audioUpload').addEventListener('change', async function(e) {
         const file = e.target.files[0];
         if (!file) return;
@@ -400,7 +422,6 @@
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    renderer.shadowMap.enabled = true;
     container.appendChild(renderer.domElement);
 
     const controls = new THREE.OrbitControls(camera, renderer.domElement);
@@ -409,14 +430,11 @@
     controls.maxDistance = 14;
     controls.minDistance = 2;
 
-    // Ambient & Studio Lights
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
-    scene.add(ambientLight);
-
+    // Lights
+    scene.add(new THREE.AmbientLight(0xffffff, 0.45));
     const keyLight = new THREE.DirectionalLight(0x38bdf8, 1.2);
     keyLight.position.set(5, 8, 5);
     scene.add(keyLight);
-
     const rimLight = new THREE.DirectionalLight(0xa855f7, 0.8);
     rimLight.position.set(-5, 4, -5);
     scene.add(rimLight);
@@ -429,14 +447,8 @@
     // Holographic Bounding Sphere
     const sphereRadius = 4.0;
     const sphereGeo = new THREE.SphereGeometry(sphereRadius, 32, 24);
-    const sphereMat = new THREE.MeshBasicMaterial({
-        color: 0x38bdf8,
-        wireframe: true,
-        transparent: true,
-        opacity: 0.08
-    });
-    const boundingSphere = new THREE.Mesh(sphereGeo, sphereMat);
-    scene.add(boundingSphere);
+    const sphereMat = new THREE.MeshBasicMaterial({ color: 0x38bdf8, wireframe: true, transparent: true, opacity: 0.08 });
+    scene.add(new THREE.Mesh(sphereGeo, sphereMat));
 
     // Equator Ring
     const ringGeo = new THREE.RingGeometry(sphereRadius - 0.02, sphereRadius + 0.02, 64);
@@ -445,15 +457,9 @@
     equatorRing.rotation.x = Math.PI / 2;
     scene.add(equatorRing);
 
-    /* --- Stylized 3D Listener Head & Bust (Modeled with Face on +Z) --- */
+    /* --- Stylized 3D Head Model (Face points along +Z) --- */
     const headGroup = new THREE.Group();
-
-    const skinMat = new THREE.MeshStandardMaterial({
-        color: 0x24324d,
-        roughness: 0.4,
-        metalness: 0.2,
-        flatShading: true
-    });
+    const skinMat = new THREE.MeshStandardMaterial({ color: 0x24324d, roughness: 0.4, metalness: 0.2, flatShading: true });
 
     // Cranium
     const craniumGeo = new THREE.SphereGeometry(0.7, 16, 16);
@@ -462,37 +468,35 @@
     cranium.position.y = 0.2;
     headGroup.add(cranium);
 
-    // Jaw / Chin (Protrudes forward toward +Z)
+    // Jaw / Chin
     const jawGeo = new THREE.CylinderGeometry(0.45, 0.25, 0.6, 12);
     const jaw = new THREE.Mesh(jawGeo, skinMat);
     jaw.position.set(0, -0.3, 0.1);
     headGroup.add(jaw);
 
-    // Nose (Points forward along +Z)
+    // Nose (Faces +Z)
     const noseGeo = new THREE.ConeGeometry(0.12, 0.35, 6);
     const nose = new THREE.Mesh(noseGeo, skinMat);
-    nose.rotation.x = Math.PI / 2; // Rotated forward along +Z
+    nose.rotation.x = Math.PI / 2;
     nose.position.set(0, 0.05, 0.68);
     headGroup.add(nose);
 
-    // Eyes / Gaze Indicators (Points forward along +Z)
+    // Cyan Gaze Indicators
     const eyeGeo = new THREE.SphereGeometry(0.07, 12, 12);
     const eyeMat = new THREE.MeshBasicMaterial({ color: 0x38bdf8 });
     const leftEye = new THREE.Mesh(eyeGeo, eyeMat);
     leftEye.position.set(-0.22, 0.18, 0.58);
     headGroup.add(leftEye);
-
     const rightEye = new THREE.Mesh(eyeGeo, eyeMat);
     rightEye.position.set(0.22, 0.18, 0.58);
     headGroup.add(rightEye);
 
-    // Binaural Ear Blocks
+    // Binaural Ears
     const earGeo = new THREE.BoxGeometry(0.12, 0.32, 0.2);
     const earMat = new THREE.MeshStandardMaterial({ color: 0x38bdf8, roughness: 0.3, emissive: 0x0284c7, emissiveIntensity: 0.3 });
     const leftEar = new THREE.Mesh(earGeo, earMat);
     leftEar.position.set(-0.62, 0.1, 0);
     headGroup.add(leftEar);
-
     const rightEar = new THREE.Mesh(earGeo, earMat);
     rightEar.position.set(0.62, 0.1, 0);
     headGroup.add(rightEar);
@@ -508,25 +512,25 @@
 
     /* --- Sound Orb --- */
     const orbGroup = new THREE.Group();
-
-    const orbCoreGeo = new THREE.SphereGeometry(0.22, 24, 24);
-    const orbCoreMat = new THREE.MeshBasicMaterial({ color: 0xef4444 });
-    const orbCore = new THREE.Mesh(orbCoreGeo, orbCoreMat);
+    const orbCore = new THREE.Mesh(new THREE.SphereGeometry(0.22, 24, 24), new THREE.MeshBasicMaterial({ color: 0xef4444 }));
     orbGroup.add(orbCore);
 
-    const orbHaloGeo = new THREE.SphereGeometry(0.36, 24, 24);
-    const orbHaloMat = new THREE.MeshBasicMaterial({ color: 0xef4444, transparent: true, opacity: 0.25, wireframe: true });
-    const orbHalo = new THREE.Mesh(orbHaloGeo, orbHaloMat);
+    const orbHalo = new THREE.Mesh(new THREE.SphereGeometry(0.36, 24, 24), new THREE.MeshBasicMaterial({ color: 0xef4444, transparent: true, opacity: 0.25, wireframe: true }));
     orbGroup.add(orbHalo);
+
+    // Invisible larger grab sphere to make touch targeting effortless on mobile
+    const grabHitbox = new THREE.Mesh(new THREE.SphereGeometry(0.65, 12, 12), new THREE.MeshBasicMaterial({ visible: false }));
+    orbGroup.add(grabHitbox);
 
     const soundLight = new THREE.PointLight(0xef4444, 2, 8);
     orbGroup.add(soundLight);
     scene.add(orbGroup);
 
-    // Sound Ray to Head
-    const rayGeo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0, 0)]);
-    const rayMat = new THREE.LineDashedMaterial({ color: 0xef4444, dashSize: 0.15, gapSize: 0.08, transparent: true, opacity: 0.6 });
-    const soundRay = new THREE.Line(rayGeo, rayMat);
+    // Tracer Line
+    const soundRay = new THREE.Line(
+        new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0, 0)]),
+        new THREE.LineDashedMaterial({ color: 0xef4444, dashSize: 0.15, gapSize: 0.08, transparent: true, opacity: 0.6 })
+    );
     scene.add(soundRay);
 
     /* ==========================================================
@@ -549,8 +553,7 @@
         elevationVal.innerText = `${Math.round(elDeg)}°`;
         distanceVal.innerText = `${dist.toFixed(1)}m`;
 
-        // Spherical to Cartesian Coordinates
-        // 0° Azimuth = front (-Z in standard Three.js/WebAudio listener space)
+        // 0° Azimuth = directly in front (-Z in standard 3D listener coordinate space)
         // 90° Azimuth = right (+X)
         const azRad = (azDeg - 90) * (Math.PI / 180);
         const elRad = elDeg * (Math.PI / 180);
@@ -561,22 +564,38 @@
 
         orbGroup.position.set(x, y, z);
 
-        // Update tracer line
         soundRay.geometry.setFromPoints([new THREE.Vector3(0, 0.15, 0), orbGroup.position]);
         soundRay.computeLineDistances();
 
-        // Update Web Audio HRTF Panner
+        // Update Web Audio Panner
         if (panner && audioCtx) {
             panner.positionX.setTargetAtTime(x, audioCtx.currentTime, 0.02);
             panner.positionY.setTargetAtTime(y, audioCtx.currentTime, 0.02);
             panner.positionZ.setTargetAtTime(z, audioCtx.currentTime, 0.02);
         }
 
-        // Head Tracking: Three.js lookAt points +Z towards target
+        // Head Tracking & Web Audio Listener Orientation Synchronization
         if (trackHead) {
-            headGroup.lookAt(x, y, z); // Face (+Z) tracks audio orb directly
+            headGroup.lookAt(x, y, z); // Head faces the audio source directly
         } else {
-            headGroup.lookAt(0, 0, -100); // Face (+Z) looks forward along 0° Azimuth (-Z)
+            headGroup.lookAt(0, 0, -100); // Head looks forward at 0° Azimuth (-Z)
+        }
+
+        // Keep audio listener's ears aligned with the visual head orientation
+        if (audioCtx && audioCtx.listener) {
+            const forward = new THREE.Vector3(0, 0, 1).applyQuaternion(headGroup.quaternion).normalize();
+            const up = new THREE.Vector3(0, 1, 0).applyQuaternion(headGroup.quaternion).normalize();
+
+            if (audioCtx.listener.forwardX) {
+                audioCtx.listener.forwardX.setValueAtTime(forward.x, audioCtx.currentTime);
+                audioCtx.listener.forwardY.setValueAtTime(forward.y, audioCtx.currentTime);
+                audioCtx.listener.forwardZ.setValueAtTime(forward.z, audioCtx.currentTime);
+                audioCtx.listener.upX.setValueAtTime(up.x, audioCtx.currentTime);
+                audioCtx.listener.upY.setValueAtTime(up.y, audioCtx.currentTime);
+                audioCtx.listener.upZ.setValueAtTime(up.z, audioCtx.currentTime);
+            } else {
+                audioCtx.listener.setOrientation(forward.x, forward.y, forward.z, up.x, up.y, up.z);
+            }
         }
     }
 
@@ -585,7 +604,82 @@
     distanceSlider.oninput = syncSoundPosition;
 
     /* ==========================================================
-       4. AXIS LOCKING & AUTO-MOVEMENT LOGIC
+       4. TOUCH SCREEN & MOUSE 3D ORB DRAGGING
+       ========================================================== */
+    const raycaster = new THREE.Raycaster();
+    const pointer = new THREE.Vector2();
+    let isDraggingOrb = false;
+
+    function getPointerPos(e) {
+        const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+        const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+        pointer.x = (clientX / window.innerWidth) * 2 - 1;
+        pointer.y = -(clientY / window.innerHeight) * 2 + 1;
+    }
+
+    function onPointerDown(e) {
+        if (e.target.closest('#ui-overlay')) return; // Ignore clicks inside UI panels
+        getPointerPos(e);
+        raycaster.setFromCamera(pointer, camera);
+
+        const intersects = raycaster.intersectObjects([grabHitbox, orbCore, orbHalo], true);
+        if (intersects.length > 0) {
+            isDraggingOrb = true;
+            controls.enabled = false; // Freeze orbit camera so user can drag the sound orb
+        }
+    }
+
+    function onPointerMove(e) {
+        if (!isDraggingOrb) return;
+        getPointerPos(e);
+        raycaster.setFromCamera(pointer, camera);
+
+        // Raycast against a virtual sphere at current distance
+        const currentDist = parseFloat(distanceSlider.value);
+        const dragSphere = new THREE.Sphere(new THREE.Vector3(0, 0, 0), currentDist);
+        const intersectPoint = new THREE.Vector3();
+
+        if (raycaster.ray.intersectSphere(dragSphere, intersectPoint)) {
+            // Convert intersection Cartesian coordinate back to Spherical
+            const x = intersectPoint.x;
+            const y = intersectPoint.y;
+            const z = intersectPoint.z;
+
+            // Elevation (-90 to +90)
+            if (!locks.elevation) {
+                const elDeg = Math.asin(Math.max(-1, Math.min(1, y / currentDist))) * (180 / Math.PI);
+                elevationSlider.value = elDeg;
+            }
+
+            // Azimuth (0 to 360)
+            if (!locks.azimuth) {
+                let azDeg = (Math.atan2(z, x) * (180 / Math.PI)) + 90;
+                if (azDeg < 0) azDeg += 360;
+                azimuthSlider.value = azDeg;
+            }
+
+            syncSoundPosition();
+        }
+    }
+
+    function onPointerUp() {
+        if (isDraggingOrb) {
+            isDraggingOrb = false;
+            controls.enabled = true; // Re-enable orbit camera
+        }
+    }
+
+    window.addEventListener('mousedown', onPointerDown);
+    window.addEventListener('mousemove', onPointerMove);
+    window.addEventListener('mouseup', onPointerUp);
+
+    window.addEventListener('touchstart', onPointerDown, { passive: false });
+    window.addEventListener('touchmove', onPointerMove, { passive: false });
+    window.addEventListener('touchend', onPointerUp);
+    window.addEventListener('touchcancel', onPointerUp);
+
+    /* ==========================================================
+       5. AXIS LOCKS & HUD MINIMIZING
        ========================================================== */
     function setupLock(btnId, sliderId, lockKey) {
         const btn = document.getElementById(btnId);
@@ -609,26 +703,59 @@
     setupLock('lockElevation', 'elevationSlider', 'elevation');
     setupLock('lockDistance', 'distanceSlider', 'distance');
 
-    // Auto-Orbit toggle
+    // Master HUD Minimize Button
+    let hudMinimized = false;
+    const toggleHudBtn = document.getElementById('toggleHudBtn');
+    const topBar = document.getElementById('top-bar');
+    const bottomPanel = document.getElementById('bottom-panel');
+    const sliderContent = document.getElementById('slider-content');
+    const minBottomBtn = document.getElementById('minBottomBtn');
+
+    toggleHudBtn.onclick = () => {
+        hudMinimized = !hudMinimized;
+        if (hudMinimized) {
+            topBar.classList.add('minimized');
+            bottomPanel.style.display = 'none';
+            toggleHudBtn.innerText = "👁 SHOW HUD";
+        } else {
+            topBar.classList.remove('minimized');
+            bottomPanel.style.display = 'flex';
+            toggleHudBtn.innerText = "👁 HIDE HUD";
+        }
+    };
+
+    // Bottom Panel Quick-Collapse
+    let bottomMinimized = false;
+    minBottomBtn.onclick = () => {
+        bottomMinimized = !bottomMinimized;
+        if (bottomMinimized) {
+            sliderContent.style.display = 'none';
+            minBottomBtn.innerText = "▲";
+        } else {
+            sliderContent.style.display = 'block';
+            minBottomBtn.innerText = "▼";
+        }
+    };
+
+    /* ==========================================================
+       6. GENERAL BUTTONS & ANIMATION LOOP
+       ========================================================== */
+    document.getElementById('startBtn').onclick = startAudio;
+    document.getElementById('stopBtn').onclick = stopPlayback;
+
     const autoMoveBtn = document.getElementById('autoMoveBtn');
     autoMoveBtn.onclick = () => {
         autoMove = !autoMove;
         if (autoMove) {
             autoMoveBtn.classList.remove('secondary');
             autoMoveBtn.classList.add('active-toggle');
-            autoMoveBtn.innerText = "🔄 AUTO ORBIT: ON";
+            autoMoveBtn.innerText = "🔄 AUTO: ON";
         } else {
             autoMoveBtn.classList.remove('active-toggle');
             autoMoveBtn.classList.add('secondary');
-            autoMoveBtn.innerText = "🔄 AUTO ORBIT: OFF";
+            autoMoveBtn.innerText = "🔄 AUTO: OFF";
         }
     };
-
-    /* ==========================================================
-       5. GENERAL BUTTON LISTENERS
-       ========================================================== */
-    document.getElementById('startBtn').onclick = startAudio;
-    document.getElementById('stopBtn').onclick = stopPlayback;
 
     const trackBtn = document.getElementById('trackBtn');
     trackBtn.onclick = () => {
@@ -645,24 +772,12 @@
         syncSoundPosition();
     };
 
-    document.getElementById('resetBtn').onclick = () => {
-        if (!locks.azimuth) azimuthSlider.value = 45;
-        if (!locks.elevation) elevationSlider.value = 0;
-        if (!locks.distance) distanceSlider.value = 3.5;
-        syncSoundPosition();
-        camera.position.set(0, 3, 7.5);
-        controls.target.set(0, 0, 0);
-    };
-
     window.addEventListener('resize', () => {
         camera.aspect = window.innerWidth / window.innerHeight;
         camera.updateProjectionMatrix();
         renderer.setSize(window.innerWidth, window.innerHeight);
     });
 
-    /* ==========================================================
-       6. MAIN ANIMATION & AUTO-MOVEMENT LOOP
-       ========================================================== */
     let clock = new THREE.Clock();
 
     function animate() {
@@ -670,36 +785,28 @@
         const delta = clock.getDelta();
         const elapsedTime = clock.getElapsedTime();
 
-        // Perform auto movement if enabled
-        if (autoMove) {
+        if (autoMove && !isDraggingOrb) {
             let changed = false;
 
-            // 1. Azimuth Orbit (30 deg/sec)
             if (!locks.azimuth) {
                 let currentAz = parseFloat(azimuthSlider.value);
-                currentAz = (currentAz + delta * 30) % 360;
-                azimuthSlider.value = currentAz;
+                azimuthSlider.value = (currentAz + delta * 30) % 360;
                 changed = true;
             }
 
-            // 2. Elevation Wave (-30° to +30°)
             if (!locks.elevation) {
-                const elev = Math.sin(elapsedTime * 0.8) * 30;
-                elevationSlider.value = elev;
+                elevationSlider.value = Math.sin(elapsedTime * 0.8) * 30;
                 changed = true;
             }
 
-            // 3. Radial Distance breathing (2.2m to 4.2m)
             if (!locks.distance) {
-                const dist = 3.2 + Math.cos(elapsedTime * 0.5) * 1.0;
-                distanceSlider.value = dist;
+                distanceSlider.value = 3.2 + Math.cos(elapsedTime * 0.5) * 1.0;
                 changed = true;
             }
 
             if (changed) syncSoundPosition();
         }
 
-        // Sound Orb Halo Pulse
         const pulse = 1 + Math.sin(elapsedTime * 4) * 0.12;
         orbHalo.scale.set(pulse, pulse, pulse);
 
