@@ -10,9 +10,10 @@
     <style>
         :root {
             --bg-color: #0b0f19;
-            --panel-bg: rgba(15, 23, 42, 0.85);
+            --panel-bg: rgba(15, 23, 42, 0.88);
             --accent-cyan: #38bdf8;
             --accent-red: #ef4444;
+            --accent-green: #10b981;
             --text-color: #e2e8f0;
         }
 
@@ -49,7 +50,7 @@
             display: flex;
             flex-direction: column;
             justify-content: space-between;
-            padding: 16px;
+            padding: 14px;
         }
 
         .hud-panel {
@@ -57,7 +58,7 @@
             backdrop-filter: blur(10px);
             border: 1px solid rgba(56, 189, 248, 0.25);
             border-radius: 12px;
-            padding: 12px 18px;
+            padding: 12px 16px;
             pointer-events: auto;
             box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
         }
@@ -70,9 +71,15 @@
             gap: 10px;
         }
 
+        .left-controls {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
         h1 {
             margin: 0;
-            font-size: 1.1rem;
+            font-size: 1rem;
             letter-spacing: 1px;
             color: var(--accent-cyan);
             text-transform: uppercase;
@@ -82,26 +89,32 @@
             display: flex;
             gap: 8px;
             align-items: center;
+            flex-wrap: wrap;
         }
 
-        button {
+        button, .btn-label {
             background: var(--accent-cyan);
             color: #0b0f19;
             border: none;
-            padding: 8px 16px;
+            padding: 8px 14px;
             border-radius: 8px;
             font-weight: 700;
-            font-size: 0.85rem;
+            font-size: 0.8rem;
             cursor: pointer;
             transition: all 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            text-decoration: none;
         }
-        button:hover { filter: brightness(1.15); transform: translateY(-1px); }
-        button:active { transform: translateY(0); }
+        button:hover, .btn-label:hover { filter: brightness(1.15); transform: translateY(-1px); }
+        button:active, .btn-label:active { transform: translateY(0); }
         button.secondary { background: #334155; color: #fff; }
-        button.active-toggle { background: #10b981; color: #fff; }
+        button.danger { background: var(--accent-red); color: #fff; }
+        button.active-toggle { background: var(--accent-green); color: #fff; }
 
         #bottom-panel {
-            max-width: 540px;
+            max-width: 580px;
             margin: 0 auto;
             width: 100%;
             display: flex;
@@ -111,9 +124,9 @@
 
         .slider-row {
             display: grid;
-            grid-template-columns: 80px 1fr 50px;
+            grid-template-columns: 80px 1fr 50px 36px;
             align-items: center;
-            gap: 10px;
+            gap: 8px;
             font-size: 0.8rem;
             font-weight: 600;
             color: #94a3b8;
@@ -124,12 +137,33 @@
             accent-color: var(--accent-cyan);
             cursor: pointer;
         }
+        input[type=range]:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
 
         .readout {
             font-family: monospace;
             color: var(--accent-cyan);
             text-align: right;
             font-size: 0.85rem;
+        }
+
+        .lock-btn {
+            background: #1e293b;
+            color: #94a3b8;
+            border: 1px solid #475569;
+            border-radius: 6px;
+            padding: 4px;
+            font-size: 0.85rem;
+            cursor: pointer;
+            min-width: 32px;
+            height: 28px;
+        }
+        .lock-btn.locked {
+            background: #ef4444;
+            color: #fff;
+            border-color: #ef4444;
         }
 
         #instructions {
@@ -141,10 +175,11 @@
             line-height: 1.4;
         }
 
-        @media (max-width: 600px) {
+        @media (max-width: 680px) {
             #instructions { display: none; }
             #top-bar { justify-content: center; }
-            h1 { font-size: 0.95rem; width: 100%; text-align: center; }
+            h1 { width: 100%; text-align: center; }
+            .btn-group { justify-content: center; }
         }
     </style>
 </head>
@@ -153,13 +188,24 @@
 <div id="canvas-container"></div>
 
 <div id="ui-overlay">
+    <!-- Top Navigation & Audio Control Bar -->
     <div id="top-bar" class="hud-panel">
-        <div>
-            <h1>3D Audio Sphere Studio</h1>
-            <div id="audio-status" style="font-size: 0.75rem; color: #64748b;">ENGINE STANDBY</div>
+        <div class="left-controls">
+            <button id="homeBtn" class="secondary" onclick="window.location.href='/Clean-start/index.html'">◀ HOME</button>
+            <div>
+                <h1>3D Audio Sphere</h1>
+                <div id="audio-status" style="font-size: 0.72rem; color: #64748b;">ENGINE STANDBY</div>
+            </div>
         </div>
+
         <div class="btn-group">
+            <label class="btn-label secondary">
+                📁 LOAD AUDIO
+                <input type="file" id="audioUpload" accept="audio/*" style="display: none;">
+            </label>
             <button id="startBtn">START AUDIO</button>
+            <button id="stopBtn" class="danger">⏹ STOP</button>
+            <button id="autoMoveBtn" class="secondary">🔄 AUTO ORBIT: OFF</button>
             <button id="trackBtn" class="secondary">HEAD TRACK: OFF</button>
             <button id="resetBtn" class="secondary">RESET</button>
         </div>
@@ -171,21 +217,25 @@
         • <strong>Scroll / Pinch:</strong> Zoom in/out
     </div>
 
+    <!-- Sliders and Axis Locks -->
     <div id="bottom-panel" class="hud-panel">
         <div class="slider-row">
             <span>AZIMUTH</span>
             <input type="range" id="azimuthSlider" min="0" max="360" step="1" value="45">
             <span class="readout" id="azimuthVal">45°</span>
+            <button id="lockAzimuth" class="lock-btn" title="Lock Azimuth">🔓</button>
         </div>
         <div class="slider-row">
             <span>ELEVATION</span>
             <input type="range" id="elevationSlider" min="-90" max="90" step="1" value="0">
             <span class="readout" id="elevationVal">0°</span>
+            <button id="lockElevation" class="lock-btn" title="Lock Elevation">🔓</button>
         </div>
         <div class="slider-row">
             <span>DISTANCE</span>
             <input type="range" id="distanceSlider" min="1" max="6" step="0.1" value="3.5">
             <span class="readout" id="distanceVal">3.5m</span>
+            <button id="lockDistance" class="lock-btn" title="Lock Distance">🔓</button>
         </div>
     </div>
 </div>
@@ -194,80 +244,148 @@
     /* ==========================================================
        1. WEB AUDIO API & HRTF PANNER SETUP
        ========================================================== */
-    let audioCtx, panner, sourceNode, isRunning = false;
+    let audioCtx, panner, sourceNode = null, oscFallback = null, gainFallback = null;
+    let isRunning = false;
     let trackHead = false;
+    let autoMove = false;
+    let loadedAudioBuffer = null;
 
-    async function initAudio() {
-        if (audioCtx) {
-            if (audioCtx.state === 'suspended') await audioCtx.resume();
-            return;
+    // Movement Lock States
+    const locks = {
+        azimuth: false,
+        elevation: false,
+        distance: false
+    };
+
+    function ensureAudioContext() {
+        if (!audioCtx) {
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+            // Setup listener at origin facing forward (-Z axis in Three.js coordinates)
+            if (audioCtx.listener.positionX) {
+                audioCtx.listener.positionX.value = 0;
+                audioCtx.listener.positionY.value = 0;
+                audioCtx.listener.positionZ.value = 0;
+                audioCtx.listener.forwardX.value = 0;
+                audioCtx.listener.forwardY.value = 0;
+                audioCtx.listener.forwardZ.value = -1;
+                audioCtx.listener.upX.value = 0;
+                audioCtx.listener.upY.value = 1;
+                audioCtx.listener.upZ.value = 0;
+            } else {
+                audioCtx.listener.setOrientation(0, 0, -1, 0, 1, 0);
+            }
+
+            panner = new PannerNode(audioCtx, {
+                panningModel: 'HRTF',
+                distanceModel: 'inverse',
+                refDistance: 1.5,
+                maxDistance: 100,
+                rolloffFactor: 1
+            });
         }
+    }
 
-        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        
-        // Setup listener at origin facing forward (-Z axis in Three.js coordinates)
-        if (audioCtx.listener.positionX) {
-            audioCtx.listener.positionX.value = 0;
-            audioCtx.listener.positionY.value = 0;
-            audioCtx.listener.positionZ.value = 0;
-            audioCtx.listener.forwardX.value = 0;
-            audioCtx.listener.forwardY.value = 0;
-            audioCtx.listener.forwardZ.value = -1;
-            audioCtx.listener.upX.value = 0;
-            audioCtx.listener.upY.value = 1;
-            audioCtx.listener.upZ.value = 0;
-        } else {
-            audioCtx.listener.setOrientation(0, 0, -1, 0, 1, 0);
+    function stopPlayback() {
+        if (sourceNode) {
+            try { sourceNode.stop(); } catch(e) {}
+            sourceNode.disconnect();
+            sourceNode = null;
         }
+        if (oscFallback) {
+            try { oscFallback.stop(); } catch(e) {}
+            oscFallback.disconnect();
+            oscFallback = null;
+        }
+        isRunning = false;
+        const startBtn = document.getElementById('startBtn');
+        const statusEl = document.getElementById('audio-status');
+        startBtn.innerText = "START AUDIO";
+        startBtn.style.opacity = "1";
+        statusEl.innerText = "AUDIO STOPPED";
+        statusEl.style.color = "#94a3b8";
+    }
 
-        // Setup HRTF spatial panner
-        panner = new PannerNode(audioCtx, {
-            panningModel: 'HRTF',
-            distanceModel: 'inverse',
-            refDistance: 1.5,
-            maxDistance: 100,
-            rolloffFactor: 1
-        });
+    async function startAudio() {
+        ensureAudioContext();
+        if (audioCtx.state === 'suspended') await audioCtx.resume();
+        stopPlayback();
 
         const statusEl = document.getElementById('audio-status');
         const startBtn = document.getElementById('startBtn');
 
-        try {
-            // Attempt to load mysound.mp3
-            const resp = await fetch('./mysound.mp3');
-            if (!resp.ok) throw new Error("File not found");
-            const buf = await audioCtx.decodeAudioData(await resp.arrayBuffer());
-
+        if (loadedAudioBuffer) {
             sourceNode = audioCtx.createBufferSource();
-            sourceNode.buffer = buf;
+            sourceNode.buffer = loadedAudioBuffer;
             sourceNode.loop = true;
             sourceNode.connect(panner).connect(audioCtx.destination);
             sourceNode.start(0);
 
-            statusEl.innerText = "PLAYING: mysound.mp3 (HRTF)";
-            statusEl.style.color = "#38bdf8";
-        } catch (e) {
-            // Smooth Fallback: Synthesizer pulse train so audio works immediately
-            console.warn("mysound.mp3 not found, using continuous harmonic tone.", e);
-            const osc = audioCtx.createOscillator();
-            const gain = audioCtx.createGain();
-            osc.type = 'triangle';
-            osc.frequency.setValueAtTime(220, audioCtx.currentTime);
-            gain.gain.setValueAtTime(0.12, audioCtx.currentTime);
+            statusEl.innerText = "PLAYING: Local File (HRTF)";
+            statusEl.style.color = "#10b981";
+        } else {
+            // Attempt to load mysound.mp3
+            try {
+                const resp = await fetch('./mysound.mp3');
+                if (!resp.ok) throw new Error("File not found");
+                loadedAudioBuffer = await audioCtx.decodeAudioData(await resp.arrayBuffer());
 
-            osc.connect(gain);
-            gain.connect(panner).connect(audioCtx.destination);
-            osc.start();
+                sourceNode = audioCtx.createBufferSource();
+                sourceNode.buffer = loadedAudioBuffer;
+                sourceNode.loop = true;
+                sourceNode.connect(panner).connect(audioCtx.destination);
+                sourceNode.start(0);
 
-            statusEl.innerText = "SYNTH DEMO TONE ACTIVE (Place mysound.mp3 to replace)";
-            statusEl.style.color = "#f59e0b";
+                statusEl.innerText = "PLAYING: mysound.mp3 (HRTF)";
+                statusEl.style.color = "#38bdf8";
+            } catch (e) {
+                // Harmonic Synth demo tone fallback
+                oscFallback = audioCtx.createOscillator();
+                gainFallback = audioCtx.createGain();
+                oscFallback.type = 'triangle';
+                oscFallback.frequency.setValueAtTime(220, audioCtx.currentTime);
+                gainFallback.gain.setValueAtTime(0.12, audioCtx.currentTime);
+
+                oscFallback.connect(gainFallback);
+                gainFallback.connect(panner).connect(audioCtx.destination);
+                oscFallback.start();
+
+                statusEl.innerText = "SYNTH TONE ACTIVE (Load audio file to replace)";
+                statusEl.style.color = "#f59e0b";
+            }
         }
 
-        startBtn.innerText = "AUDIO RUNNING";
-        startBtn.style.opacity = "0.6";
+        startBtn.innerText = "PLAYING";
+        startBtn.style.opacity = "0.7";
         isRunning = true;
         syncSoundPosition();
     }
+
+    // Local file loader
+    document.getElementById('audioUpload').addEventListener('change', async function(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        ensureAudioContext();
+        if (audioCtx.state === 'suspended') await audioCtx.resume();
+
+        const statusEl = document.getElementById('audio-status');
+        statusEl.innerText = "DECODING AUDIO FILE...";
+        statusEl.style.color = "#38bdf8";
+
+        const reader = new FileReader();
+        reader.onload = async function(ev) {
+            try {
+                loadedAudioBuffer = await audioCtx.decodeAudioData(ev.target.result);
+                startAudio();
+            } catch (err) {
+                console.error("Audio decode error:", err);
+                statusEl.innerText = "FAILED TO DECODE AUDIO";
+                statusEl.style.color = "#ef4444";
+            }
+        };
+        reader.readAsArrayBuffer(file);
+    });
 
     /* ==========================================================
        2. THREE.JS 3D SCENE & HUMAN HEAD MODEL
@@ -327,10 +445,9 @@
     equatorRing.rotation.x = Math.PI / 2;
     scene.add(equatorRing);
 
-    /* --- Build Stylized 3D Listener Head & Bust --- */
+    /* --- Stylized 3D Listener Head & Bust --- */
     const headGroup = new THREE.Group();
 
-    // Material for Head
     const skinMat = new THREE.MeshStandardMaterial({
         color: 0x24324d,
         roughness: 0.4,
@@ -351,14 +468,14 @@
     jaw.position.set(0, -0.3, 0.1);
     headGroup.add(jaw);
 
-    // Nose (defines forward direction -Z)
+    // Nose
     const noseGeo = new THREE.ConeGeometry(0.12, 0.35, 6);
     const nose = new THREE.Mesh(noseGeo, skinMat);
     nose.rotation.x = -Math.PI / 2;
     nose.position.set(0, 0.05, -0.68);
     headGroup.add(nose);
 
-    // Ears (Binaural reference points)
+    // Binaural Ear Blocks
     const earGeo = new THREE.BoxGeometry(0.12, 0.32, 0.2);
     const earMat = new THREE.MeshStandardMaterial({ color: 0x38bdf8, roughness: 0.3, emissive: 0x0284c7, emissiveIntensity: 0.3 });
     const leftEar = new THREE.Mesh(earGeo, earMat);
@@ -369,7 +486,7 @@
     rightEar.position.set(0.62, 0.1, 0);
     headGroup.add(rightEar);
 
-    // Shoulders / Bust
+    // Bust
     const bustGeo = new THREE.CylinderGeometry(0.28, 0.85, 0.8, 16);
     const bustMat = new THREE.MeshStandardMaterial({ color: 0x131d31, roughness: 0.6 });
     const bust = new THREE.Mesh(bustGeo, bustMat);
@@ -378,28 +495,24 @@
 
     scene.add(headGroup);
 
-    /* --- Sound Source Orb & Indicator Line --- */
+    /* --- Sound Orb --- */
     const orbGroup = new THREE.Group();
 
-    // Glowing Core
     const orbCoreGeo = new THREE.SphereGeometry(0.22, 24, 24);
     const orbCoreMat = new THREE.MeshBasicMaterial({ color: 0xef4444 });
     const orbCore = new THREE.Mesh(orbCoreGeo, orbCoreMat);
     orbGroup.add(orbCore);
 
-    // Translucent Halo
     const orbHaloGeo = new THREE.SphereGeometry(0.36, 24, 24);
     const orbHaloMat = new THREE.MeshBasicMaterial({ color: 0xef4444, transparent: true, opacity: 0.25, wireframe: true });
     const orbHalo = new THREE.Mesh(orbHaloGeo, orbHaloMat);
     orbGroup.add(orbHalo);
 
-    // Point Light emitting from the sound
     const soundLight = new THREE.PointLight(0xef4444, 2, 8);
     orbGroup.add(soundLight);
-
     scene.add(orbGroup);
 
-    // Sound Ray (Line from Head Center to Sound Orb)
+    // Sound Ray to Head
     const rayGeo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0, 0)]);
     const rayMat = new THREE.LineDashedMaterial({ color: 0xef4444, dashSize: 0.15, gapSize: 0.08, transparent: true, opacity: 0.6 });
     const soundRay = new THREE.Line(rayGeo, rayMat);
@@ -421,13 +534,11 @@
         const elDeg = parseFloat(elevationSlider.value);
         const dist = parseFloat(distanceSlider.value);
 
-        azimuthVal.innerText = `${azDeg}°`;
-        elevationVal.innerText = `${elDeg}°`;
+        azimuthVal.innerText = `${Math.round(azDeg)}°`;
+        elevationVal.innerText = `${Math.round(elDeg)}°`;
         distanceVal.innerText = `${dist.toFixed(1)}m`;
 
         // Spherical to Cartesian Coordinates
-        // 0° Azimuth = directly in front (-Z in Three.js)
-        // 90° Azimuth = to the right (+X)
         const azRad = (azDeg - 90) * (Math.PI / 180);
         const elRad = elDeg * (Math.PI / 180);
 
@@ -437,7 +548,7 @@
 
         orbGroup.position.set(x, y, z);
 
-        // Update Tracer Line
+        // Update tracer line
         soundRay.geometry.setFromPoints([new THREE.Vector3(0, 0.15, 0), orbGroup.position]);
         soundRay.computeLineDistances();
 
@@ -448,11 +559,10 @@
             panner.positionZ.setTargetAtTime(z, audioCtx.currentTime, 0.02);
         }
 
-        // Real-time Head Tracking
+        // Head tracking
         if (trackHead) {
             headGroup.lookAt(x, y, z);
         } else {
-            // Keep head looking straight forward along -Z
             headGroup.rotation.set(0, 0, 0);
         }
     }
@@ -462,9 +572,50 @@
     distanceSlider.oninput = syncSoundPosition;
 
     /* ==========================================================
-       4. INTERACTIVE CONTROLS & LISTENERS
+       4. AXIS LOCKING & AUTO-MOVEMENT LOGIC
        ========================================================== */
-    document.getElementById('startBtn').onclick = initAudio;
+    function setupLock(btnId, sliderId, lockKey) {
+        const btn = document.getElementById(btnId);
+        const slider = document.getElementById(sliderId);
+
+        btn.onclick = () => {
+            locks[lockKey] = !locks[lockKey];
+            if (locks[lockKey]) {
+                btn.classList.add('locked');
+                btn.innerText = '🔒';
+                slider.disabled = true;
+            } else {
+                btn.classList.remove('locked');
+                btn.innerText = '🔓';
+                slider.disabled = false;
+            }
+        };
+    }
+
+    setupLock('lockAzimuth', 'azimuthSlider', 'azimuth');
+    setupLock('lockElevation', 'elevationSlider', 'elevation');
+    setupLock('lockDistance', 'distanceSlider', 'distance');
+
+    // Auto-Orbit toggle
+    const autoMoveBtn = document.getElementById('autoMoveBtn');
+    autoMoveBtn.onclick = () => {
+        autoMove = !autoMove;
+        if (autoMove) {
+            autoMoveBtn.classList.remove('secondary');
+            autoMoveBtn.classList.add('active-toggle');
+            autoMoveBtn.innerText = "🔄 AUTO ORBIT: ON";
+        } else {
+            autoMoveBtn.classList.remove('active-toggle');
+            autoMoveBtn.classList.add('secondary');
+            autoMoveBtn.innerText = "🔄 AUTO ORBIT: OFF";
+        }
+    };
+
+    /* ==========================================================
+       5. GENERAL BUTTON LISTENERS
+       ========================================================== */
+    document.getElementById('startBtn').onclick = startAudio;
+    document.getElementById('stopBtn').onclick = stopPlayback;
 
     const trackBtn = document.getElementById('trackBtn');
     trackBtn.onclick = () => {
@@ -482,9 +633,9 @@
     };
 
     document.getElementById('resetBtn').onclick = () => {
-        azimuthSlider.value = 0;
-        elevationSlider.value = 0;
-        distanceSlider.value = 3.5;
+        if (!locks.azimuth) azimuthSlider.value = 45;
+        if (!locks.elevation) elevationSlider.value = 0;
+        if (!locks.distance) distanceSlider.value = 3.5;
         syncSoundPosition();
         camera.position.set(0, 3, 7.5);
         controls.target.set(0, 0, 0);
@@ -496,13 +647,46 @@
         renderer.setSize(window.innerWidth, window.innerHeight);
     });
 
-    // Animation Loop
+    /* ==========================================================
+       6. MAIN ANIMATION & AUTO-MOVEMENT LOOP
+       ========================================================== */
     let clock = new THREE.Clock();
+
     function animate() {
         requestAnimationFrame(animate);
+        const delta = clock.getDelta();
         const elapsedTime = clock.getElapsedTime();
 
-        // Gentle pulse on the sound orb halo
+        // Perform auto movement if enabled
+        if (autoMove) {
+            let changed = false;
+
+            // 1. Azimuth Orbit (30 deg/sec)
+            if (!locks.azimuth) {
+                let currentAz = parseFloat(azimuthSlider.value);
+                currentAz = (currentAz + delta * 30) % 360;
+                azimuthSlider.value = currentAz;
+                changed = true;
+            }
+
+            // 2. Elevation Wave (-30° to +30°)
+            if (!locks.elevation) {
+                const elev = Math.sin(elapsedTime * 0.8) * 30;
+                elevationSlider.value = elev;
+                changed = true;
+            }
+
+            // 3. Radial Distance breathing (2.2m to 4.2m)
+            if (!locks.distance) {
+                const dist = 3.2 + Math.cos(elapsedTime * 0.5) * 1.0;
+                distanceSlider.value = dist;
+                changed = true;
+            }
+
+            if (changed) syncSoundPosition();
+        }
+
+        // Sound Orb Halo Pulse
         const pulse = 1 + Math.sin(elapsedTime * 4) * 0.12;
         orbHalo.scale.set(pulse, pulse, pulse);
 
