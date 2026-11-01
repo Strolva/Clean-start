@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Puzzle Block</title>
+    <title>Musical Audio Slide Symphony</title>
     <style>
         :root {
             --bg-color: #0f172a;
@@ -182,7 +182,6 @@
         .piece:active { transform: scale(0.96); }
         .piece.correct { border-color: #0ea5e9; }
         
-        /* Blank/missing slide slot */
         .piece.empty {
             background: #0f172a !important;
             border: 2px dashed #334155 !important;
@@ -200,6 +199,62 @@
             max-width: 420px;
             line-height: 1.4;
         }
+
+        /* Keyboard Styles */
+        .keyboard-wrapper {
+            margin-top: 18px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .keyboard-title {
+            font-size: 0.75rem;
+            letter-spacing: 1px;
+            color: #94a3b8;
+            margin-bottom: 6px;
+            text-transform: uppercase;
+            font-weight: bold;
+        }
+        .keyboard-container {
+            display: flex;
+            background: #1e293b;
+            padding: 8px 12px;
+            border-radius: 8px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+            position: relative;
+        }
+        .piano-key {
+            width: 32px;
+            height: 105px;
+            background: white;
+            border: 1px solid #cbd5e1;
+            border-radius: 0 0 4px 4px;
+            cursor: pointer;
+            display: flex;
+            align-items: flex-end;
+            justify-content: center;
+            padding-bottom: 6px;
+            font-weight: bold;
+            font-size: 0.8rem;
+            color: #334155;
+            user-select: none;
+            position: relative;
+            z-index: 1;
+            transition: background 0.1s;
+        }
+        .piano-key.black {
+            width: 20px;
+            height: 65px;
+            background: #0f172a;
+            color: transparent;
+            margin-left: -10px;
+            margin-right: -10px;
+            z-index: 2;
+            border-radius: 0 0 3px 3px;
+            border: 1px solid #334155;
+        }
+        .piano-key.active-white { background: var(--accent-cyan) !important; color: #0f172a; }
+        .piano-key.active-black { background: #0284c7 !important; }
 
         @keyframes pulse {
             0% { transform: scale(1); box-shadow: 0 0 0px #38bdf8; }
@@ -251,6 +306,12 @@
 
     <p id="status">Upload or record audio to build your sliding puzzle!</p>
 
+    <!-- Piano Keyboard Section -->
+    <div class="keyboard-wrapper">
+        <div class="keyboard-title">Pitch Reference Keyboard</div>
+        <div class="keyboard-container" id="piano-keyboard"></div>
+    </div>
+
     <script>
         let audioCtx, mainBuffer;
         let activeSources = []; 
@@ -267,6 +328,12 @@
         
         let waveformImageSrc = null; 
         let uploadedImageSrc = null;
+
+        const noteFrequencies = {
+            'C': 261.63, 'C#': 277.18, 'D': 293.66, 'D#': 311.13,
+            'E': 329.63, 'F': 349.23, 'F#': 369.99, 'G': 392.00,
+            'G#': 415.30, 'A': 440.00, 'A#': 466.16, 'B': 493.88
+        };
 
         function setMode(mode) {
             currentMode = mode;
@@ -356,6 +423,59 @@
             if (audioCtx.state === 'suspended') {
                 audioCtx.resume();
             }
+        }
+
+        function playSynthTone(note, duration = 0.4) {
+            const freq = noteFrequencies[note];
+            if (!freq) return;
+            initAudioCtx();
+
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+
+            gain.gain.setValueAtTime(0.25, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + duration);
+
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+
+            osc.start();
+            osc.stop(audioCtx.currentTime + duration);
+
+            highlightKey(note, duration * 1000);
+        }
+
+        function highlightKey(note, durationMs) {
+            const el = document.getElementById(`key-${note}`);
+            if (!el) return;
+            const isBlack = el.classList.contains('black');
+            const activeClass = isBlack ? 'active-black' : 'active-white';
+            el.classList.add(activeClass);
+            setTimeout(() => el.classList.remove(activeClass), durationMs);
+        }
+
+        function buildKeyboard() {
+            const keyboard = document.getElementById('piano-keyboard');
+            keyboard.innerHTML = '';
+            const layout = [
+                { note: 'C', black: false }, { note: 'C#', black: true },
+                { note: 'D', black: false }, { note: 'D#', black: true },
+                { note: 'E', black: false }, { note: 'F', black: false },
+                { note: 'F#', black: true }, { note: 'G', black: false },
+                { note: 'G#', black: true }, { note: 'A', black: false },
+                { note: 'A#', black: true }, { note: 'B', black: false }
+            ];
+            layout.forEach(k => {
+                const el = document.createElement('div');
+                el.className = `piano-key ${k.black ? 'black' : ''}`;
+                el.id = `key-${k.note}`;
+                if (!k.black) el.textContent = k.note;
+                el.addEventListener('mousedown', () => playSynthTone(k.note));
+                keyboard.appendChild(el);
+            });
         }
 
         async function processAudioData(arrayBuffer) {
@@ -636,6 +756,7 @@
         
         window.addEventListener('resize', updateGhostCanvas);
         window.addEventListener('DOMContentLoaded', () => {
+            buildKeyboard();
             setMode('easy');
         });
     </script>
