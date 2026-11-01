@@ -261,7 +261,7 @@
         if (!audioCtx) {
             audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
-            // Setup listener at origin facing forward (-Z axis in Three.js coordinates)
+            // Web Audio coordinate system: listener facing -Z, up +Y
             if (audioCtx.listener.positionX) {
                 audioCtx.listener.positionX.value = 0;
                 audioCtx.listener.positionY.value = 0;
@@ -445,7 +445,7 @@
     equatorRing.rotation.x = Math.PI / 2;
     scene.add(equatorRing);
 
-    /* --- Stylized 3D Listener Head & Bust --- */
+    /* --- Stylized 3D Listener Head & Bust (Modeled with Face on +Z) --- */
     const headGroup = new THREE.Group();
 
     const skinMat = new THREE.MeshStandardMaterial({
@@ -462,18 +462,29 @@
     cranium.position.y = 0.2;
     headGroup.add(cranium);
 
-    // Jaw / Chin
+    // Jaw / Chin (Protrudes forward toward +Z)
     const jawGeo = new THREE.CylinderGeometry(0.45, 0.25, 0.6, 12);
     const jaw = new THREE.Mesh(jawGeo, skinMat);
     jaw.position.set(0, -0.3, 0.1);
     headGroup.add(jaw);
 
-    // Nose
+    // Nose (Points forward along +Z)
     const noseGeo = new THREE.ConeGeometry(0.12, 0.35, 6);
     const nose = new THREE.Mesh(noseGeo, skinMat);
-    nose.rotation.x = -Math.PI / 2;
-    nose.position.set(0, 0.05, -0.68);
+    nose.rotation.x = Math.PI / 2; // Rotated forward along +Z
+    nose.position.set(0, 0.05, 0.68);
     headGroup.add(nose);
+
+    // Eyes / Gaze Indicators (Points forward along +Z)
+    const eyeGeo = new THREE.SphereGeometry(0.07, 12, 12);
+    const eyeMat = new THREE.MeshBasicMaterial({ color: 0x38bdf8 });
+    const leftEye = new THREE.Mesh(eyeGeo, eyeMat);
+    leftEye.position.set(-0.22, 0.18, 0.58);
+    headGroup.add(leftEye);
+
+    const rightEye = new THREE.Mesh(eyeGeo, eyeMat);
+    rightEye.position.set(0.22, 0.18, 0.58);
+    headGroup.add(rightEye);
 
     // Binaural Ear Blocks
     const earGeo = new THREE.BoxGeometry(0.12, 0.32, 0.2);
@@ -539,6 +550,8 @@
         distanceVal.innerText = `${dist.toFixed(1)}m`;
 
         // Spherical to Cartesian Coordinates
+        // 0° Azimuth = front (-Z in standard Three.js/WebAudio listener space)
+        // 90° Azimuth = right (+X)
         const azRad = (azDeg - 90) * (Math.PI / 180);
         const elRad = elDeg * (Math.PI / 180);
 
@@ -559,11 +572,11 @@
             panner.positionZ.setTargetAtTime(z, audioCtx.currentTime, 0.02);
         }
 
-        // Head tracking
+        // Head Tracking: Three.js lookAt points +Z towards target
         if (trackHead) {
-            headGroup.lookAt(x, y, z);
+            headGroup.lookAt(x, y, z); // Face (+Z) tracks audio orb directly
         } else {
-            headGroup.rotation.set(0, 0, 0);
+            headGroup.lookAt(0, 0, -100); // Face (+Z) looks forward along 0° Azimuth (-Z)
         }
     }
 
