@@ -14,7 +14,6 @@
             --accent-cyan: #38bdf8;
             --accent-red: #ef4444;
             --accent-green: #10b981;
-            --accent-amber: #f59e0b;
             --text-color: #e2e8f0;
         }
 
@@ -290,13 +289,18 @@
         }
     }
 
-    function stopPlayback() {
-        // Disconnect and stop all active sources immediately
+    // Stop only active sound nodes without suspending context
+    function stopActiveSourcesOnly() {
         activeSources.forEach(s => {
             try { s.stop(); } catch(e) {}
             try { s.disconnect(); } catch(e) {}
         });
         activeSources = [];
+    }
+
+    // User pressed STOP button: stop sounds and cleanly suspend context
+    function stopPlayback() {
+        stopActiveSourcesOnly();
 
         if (audioCtx && audioCtx.state === 'running') {
             audioCtx.suspend();
@@ -313,8 +317,12 @@
 
     async function startAudio() {
         ensureAudioContext();
-        if (audioCtx.state === 'suspended') await audioCtx.resume();
-        stopPlayback(); // Clean slate
+        if (audioCtx.state === 'suspended') {
+            await audioCtx.resume();
+        }
+        
+        // Stop any old buffer sources, but KEEP the audioContext running
+        stopActiveSourcesOnly();
 
         const statusEl = document.getElementById('audio-status');
         const startBtn = document.getElementById('startBtn');
@@ -322,7 +330,7 @@
         if (loadedAudioBuffer) {
             const src = audioCtx.createBufferSource();
             src.buffer = loadedAudioBuffer;
-            src.loop = true;
+            src.loop = true; // Complete uninterrupted loop
             src.connect(panner);
             src.start(0);
             activeSources.push(src);
@@ -337,7 +345,7 @@
 
                 const src = audioCtx.createBufferSource();
                 src.buffer = loadedAudioBuffer;
-                src.loop = true;
+                src.loop = true; // Complete uninterrupted loop
                 src.connect(panner);
                 src.start(0);
                 activeSources.push(src);
@@ -345,7 +353,7 @@
                 statusEl.innerText = "PLAYING: mysound.mp3";
                 statusEl.style.color = "#38bdf8";
             } catch (e) {
-                // Synthesizer demo tone fallback
+                // Continuous Synth tone fallback
                 const osc = audioCtx.createOscillator();
                 const gain = audioCtx.createGain();
                 osc.type = 'triangle';
@@ -368,7 +376,7 @@
         syncSoundPosition();
     }
 
-    // Toggle Panning Model (HRTF vs EqualPower)
+    // Toggle Panning Model
     const modelBtn = document.getElementById('modelBtn');
     modelBtn.onclick = () => {
         if (currentPanningModel === 'HRTF') {
@@ -518,8 +526,8 @@
     const orbHalo = new THREE.Mesh(new THREE.SphereGeometry(0.36, 24, 24), new THREE.MeshBasicMaterial({ color: 0xef4444, transparent: true, opacity: 0.25, wireframe: true }));
     orbGroup.add(orbHalo);
 
-    // Invisible larger grab sphere to make touch targeting effortless on mobile
-    const grabHitbox = new THREE.Mesh(new THREE.SphereGeometry(0.65, 12, 12), new THREE.MeshBasicMaterial({ visible: false }));
+    // Generous hitbox for easy mobile dragging
+    const grabHitbox = new THREE.Mesh(new THREE.SphereGeometry(0.7, 12, 12), new THREE.MeshBasicMaterial({ visible: false }));
     orbGroup.add(grabHitbox);
 
     const soundLight = new THREE.PointLight(0xef4444, 2, 8);
@@ -553,8 +561,6 @@
         elevationVal.innerText = `${Math.round(elDeg)}°`;
         distanceVal.innerText = `${dist.toFixed(1)}m`;
 
-        // 0° Azimuth = directly in front (-Z in standard 3D listener coordinate space)
-        // 90° Azimuth = right (+X)
         const azRad = (azDeg - 90) * (Math.PI / 180);
         const elRad = elDeg * (Math.PI / 180);
 
@@ -567,32 +573,32 @@
         soundRay.geometry.setFromPoints([new THREE.Vector3(0, 0.15, 0), orbGroup.position]);
         soundRay.computeLineDistances();
 
-        // Update Web Audio Panner
-        if (panner && audioCtx) {
-            panner.positionX.setTargetAtTime(x, audioCtx.currentTime, 0.02);
-            panner.positionY.setTargetAtTime(y, audioCtx.currentTime, 0.02);
-            panner.positionZ.setTargetAtTime(z, audioCtx.currentTime, 0.02);
+        // Direct value assignment avoids timeline queue overflow
+        if (panner) {
+            panner.positionX.value = x;
+            panner.positionY.value = y;
+            panner.positionZ.value = z;
         }
 
-        // Head Tracking & Web Audio Listener Orientation Synchronization
+        // Head Tracking
         if (trackHead) {
-            headGroup.lookAt(x, y, z); // Head faces the audio source directly
+            headGroup.lookAt(x, y, z);
         } else {
-            headGroup.lookAt(0, 0, -100); // Head looks forward at 0° Azimuth (-Z)
+            headGroup.lookAt(0, 0, -100);
         }
 
-        // Keep audio listener's ears aligned with the visual head orientation
+        // Synchronize Web Audio Listener to Head Orientation
         if (audioCtx && audioCtx.listener) {
             const forward = new THREE.Vector3(0, 0, 1).applyQuaternion(headGroup.quaternion).normalize();
             const up = new THREE.Vector3(0, 1, 0).applyQuaternion(headGroup.quaternion).normalize();
 
             if (audioCtx.listener.forwardX) {
-                audioCtx.listener.forwardX.setValueAtTime(forward.x, audioCtx.currentTime);
-                audioCtx.listener.forwardY.setValueAtTime(forward.y, audioCtx.currentTime);
-                audioCtx.listener.forwardZ.setValueAtTime(forward.z, audioCtx.currentTime);
-                audioCtx.listener.upX.setValueAtTime(up.x, audioCtx.currentTime);
-                audioCtx.listener.upY.setValueAtTime(up.y, audioCtx.currentTime);
-                audioCtx.listener.upZ.setValueAtTime(up.z, audioCtx.currentTime);
+                audioCtx.listener.forwardX.value = forward.x;
+                audioCtx.listener.forwardY.value = forward.y;
+                audioCtx.listener.forwardZ.value = forward.z;
+                audioCtx.listener.upX.value = up.x;
+                audioCtx.listener.upY.value = up.y;
+                audioCtx.listener.upZ.value = up.z;
             } else {
                 audioCtx.listener.setOrientation(forward.x, forward.y, forward.z, up.x, up.y, up.z);
             }
@@ -618,14 +624,14 @@
     }
 
     function onPointerDown(e) {
-        if (e.target.closest('#ui-overlay')) return; // Ignore clicks inside UI panels
+        if (e.target.closest('#ui-overlay')) return;
         getPointerPos(e);
         raycaster.setFromCamera(pointer, camera);
 
         const intersects = raycaster.intersectObjects([grabHitbox, orbCore, orbHalo], true);
         if (intersects.length > 0) {
             isDraggingOrb = true;
-            controls.enabled = false; // Freeze orbit camera so user can drag the sound orb
+            controls.enabled = false;
         }
     }
 
@@ -634,24 +640,20 @@
         getPointerPos(e);
         raycaster.setFromCamera(pointer, camera);
 
-        // Raycast against a virtual sphere at current distance
         const currentDist = parseFloat(distanceSlider.value);
         const dragSphere = new THREE.Sphere(new THREE.Vector3(0, 0, 0), currentDist);
         const intersectPoint = new THREE.Vector3();
 
         if (raycaster.ray.intersectSphere(dragSphere, intersectPoint)) {
-            // Convert intersection Cartesian coordinate back to Spherical
             const x = intersectPoint.x;
             const y = intersectPoint.y;
             const z = intersectPoint.z;
 
-            // Elevation (-90 to +90)
             if (!locks.elevation) {
                 const elDeg = Math.asin(Math.max(-1, Math.min(1, y / currentDist))) * (180 / Math.PI);
                 elevationSlider.value = elDeg;
             }
 
-            // Azimuth (0 to 360)
             if (!locks.azimuth) {
                 let azDeg = (Math.atan2(z, x) * (180 / Math.PI)) + 90;
                 if (azDeg < 0) azDeg += 360;
@@ -665,7 +667,7 @@
     function onPointerUp() {
         if (isDraggingOrb) {
             isDraggingOrb = false;
-            controls.enabled = true; // Re-enable orbit camera
+            controls.enabled = true;
         }
     }
 
@@ -738,7 +740,7 @@
     };
 
     /* ==========================================================
-       6. GENERAL BUTTONS & ANIMATION LOOP
+       6. BUTTON LISTENERS & ANIMATION LOOP
        ========================================================== */
     document.getElementById('startBtn').onclick = startAudio;
     document.getElementById('stopBtn').onclick = stopPlayback;
