@@ -2,540 +2,642 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pentatonic Grid Symphony</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Musical Audio Slide Symphony</title>
     <style>
         :root {
-            --bg-color: #f4f7f6;
-            --grid-bg: #34495e;
-            --cell-clue: #cfd8dc;
-            --cell-empty: #ffffff;
-            --accent-color: #1abc9c;
-            --conflict-color: #d32f2f;
+            --bg-color: #0f172a;
+            --accent-cyan: #38bdf8;
+            --accent-purple: #a855f7;
+            --panel-bg: #1e293b;
         }
 
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: var(--bg-color);
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            padding: 20px;
-            color: #333;
-        }
-
-        h1 {
-            margin-bottom: 8px;
-            color: #2c3e50;
-            text-align: center;
-        }
-
-        /* Top Mode Switcher Bar */
-        .mode-selector {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 18px;
-            background: #e2e8f0;
-            padding: 6px;
-            border-radius: 8px;
-        }
-
-        .mode-btn {
-            background: transparent;
-            color: #4a5568;
-            border: none;
-            padding: 8px 18px;
-            font-size: 0.95rem;
-            font-weight: 700;
-            border-radius: 6px;
-            cursor: pointer;
-            transition: all 0.2s ease;
-        }
-
-        .mode-btn:hover {
-            background: #cbd5e1;
-            color: #1a202c;
-        }
-
-        .mode-btn.active {
-            background: #1abc9c;
-            color: white;
-            box-shadow: 0 2px 6px rgba(26, 188, 156, 0.4);
-        }
-
-        #mode-description {
-            margin-bottom: 20px;
-            text-align: center;
-            max-width: 580px;
-            line-height: 1.5;
-            font-size: 0.95rem;
-            color: #555;
-            min-height: 42px;
-        }
-
-        .game-layout {
-            display: grid;
-            grid-template-columns: 40px 1fr;
-            grid-template-rows: 40px 1fr;
-            gap: 5px;
-            align-items: center;
-            justify-items: center;
-        }
-
-        .top-triggers {
-            grid-column: 2;
-            grid-row: 1;
-            display: grid;
-            grid-template-columns: repeat(5, 60px);
-            gap: 4px;
-            justify-items: center;
-        }
-
-        .side-triggers {
-            grid-column: 1;
-            grid-row: 2;
-            display: grid;
-            grid-template-rows: repeat(5, 60px);
-            gap: 4px;
-            align-items: center;
-        }
-
-        #sudoku-container {
-            grid-column: 2;
-            grid-row: 2;
-            display: grid;
-            grid-template-columns: repeat(5, 60px);
-            grid-template-rows: repeat(5, 60px);
-            gap: 4px;
-            background: var(--grid-bg);
-            padding: 6px;
-            border-radius: 8px;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.15);
-        }
-
-        .trigger-btn {
-            background: var(--grid-bg);
-            color: #fff;
-            border: none;
-            border-radius: 4px;
-            width: 30px;
-            height: 30px;
-            cursor: pointer;
-            font-size: 0.85rem;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            transition: background 0.2s, transform 0.1s;
-        }
-        .trigger-btn:hover { background: var(--accent-color); }
-        .trigger-btn:active { transform: scale(0.9); }
-
-        .cell {
-            width: 60px;
-            height: 60px;
-            background: var(--cell-empty);
-            border-radius: 4px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 1.4rem;
-            font-weight: bold;
-            cursor: pointer;
+        body { 
+            background: var(--bg-color); 
+            color: var(--accent-cyan); 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            display: flex; 
+            flex-direction: column; 
+            align-items: center; 
+            justify-content: flex-start; 
+            min-height: 100vh; 
+            margin: 0; 
+            padding: 20px 10px 40px; 
+            overflow-x: hidden;
+            -webkit-user-select: none; 
             user-select: none;
-            transition: transform 0.1s, filter 0.2s, background-color 0.3s, color 0.3s;
-            position: relative;
         }
 
-        .cell:hover { filter: brightness(0.92); }
-        .cell:active { transform: scale(0.95); }
-
-        /* Clue / Locked Cell Styles */
-        .cell.clue-hint {
-            background-color: var(--cell-clue);
-            color: #2c3e50;
-            cursor: not-allowed;
-            font-weight: 800;
+        #top-bar {
+            width: 100%; 
+            max-width: 440px; 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            margin-bottom: 12px;
         }
-        .cell.clue-hint:hover { filter: none; }
-
-        /* Lock badge for Medium / Ear modes */
-        .mode-medium .cell.clue-hint::after,
-        .mode-ear .cell.clue-hint::after {
-            content: "🔒";
-            position: absolute;
-            font-size: 1.2rem;
-            opacity: 0.8;
-        }
-
-        /* Note icon badge for Medium mode */
-        .mode-medium .cell.has-note::after {
-            content: "🎵";
-            position: absolute;
-            font-size: 1.2rem;
-            opacity: 0.8;
-        }
-
-        /* Conflict indication */
-        .cell.conflict {
-            background-color: #ffcdd2 !important;
-            color: var(--conflict-color) !important;
-            animation: shake 0.2s ease-in-out;
-        }
-
-        @keyframes shake {
-            0%, 100% { transform: translateX(0); }
-            25% { transform: translateX(-2px); }
-            75% { transform: translateX(2px); }
-        }
-
-        #controls {
-            margin-top: 25px;
-            display: flex;
-            gap: 12px;
-            flex-wrap: wrap;
-            justify-content: center;
-        }
-
-        button.action-btn {
-            padding: 10px 18px;
-            font-size: 0.95rem;
-            font-weight: bold;
-            border: none;
-            border-radius: 5px;
+        #homeBtn { 
+            background: #334155; 
+            color: #fff; 
+            padding: 9px 14px; 
+            font-size: 0.9rem; 
+            border: none; 
+            border-radius: 8px; 
+            font-weight: bold; 
             cursor: pointer;
-            background: #3498db;
-            color: white;
             transition: background 0.2s;
         }
+        #homeBtn:hover { background: #475569; }
 
-        button.action-btn:hover { background: #2980b9; }
-        #random-btn { background: #9b59b6; }
-        #random-btn:hover { background: #8e44ad; }
-        #check-btn { background: #2ecc71; }
-        #check-btn:hover { background: #27ae60; }
-
-        #message {
-            margin-top: 18px;
+        /* Top Mode Selector */
+        .mode-selector {
+            display: flex;
+            gap: 6px;
+            background: #1e293b;
+            padding: 5px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            width: 100%;
+            max-width: 440px;
+            box-sizing: border-box;
+            justify-content: center;
+        }
+        .mode-btn {
+            flex: 1;
+            background: transparent;
+            color: #94a3b8;
+            border: none;
+            padding: 8px 6px;
+            font-size: 0.8rem;
             font-weight: bold;
-            font-size: 1.15rem;
-            min-height: 28px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
             text-align: center;
         }
+        .mode-btn:hover { color: #fff; }
+        .mode-btn.active {
+            background: var(--accent-cyan);
+            color: #0f172a;
+            box-shadow: 0 2px 6px rgba(56, 189, 248, 0.35);
+        }
+
+        #grid-controls { 
+            display: flex; 
+            align-items: center; 
+            gap: 10px; 
+            background: var(--panel-bg); 
+            padding: 5px; 
+            border-radius: 8px;
+        }
+        .stepper-btn { 
+            background: #334155; 
+            color: white; 
+            border: none; 
+            border-radius: 6px; 
+            padding: 7px 11px; 
+            font-size: 0.95rem; 
+            cursor: pointer; 
+            touch-action: manipulation; 
+        }
+        .stepper-btn:active { background: #475569; }
+        #grid-size-label { font-weight: bold; width: 36px; text-align: center; color: #fff; font-size: 0.9rem; }
+
+        #controls { 
+            margin-bottom: 16px; 
+            display: flex; 
+            gap: 8px; 
+            flex-wrap: wrap; 
+            justify-content: center; 
+            width: 100%; 
+            max-width: 440px;
+        }
+        .btn { 
+            padding: 9px 13px; 
+            border-radius: 8px; 
+            border: none; 
+            font-size: 0.85rem;
+            font-weight: bold; 
+            cursor: pointer; 
+            transition: 0.2s; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center;
+        }
+        .btn-audio { background: #38bdf8; color: #0f172a; }
+        .btn-image { background: #a855f7; color: #fff; }
+        .btn-record { background: #f59e0b; color: #0f172a; }
+        .btn-record.recording { background: #ef4444; color: #fff; animation: pulseRecord 1s infinite; }
+        .btn-random { background: #6366f1; color: #fff; display: none; }
+        #refBtn { background: #22c55e; color: #fff; display: none; }
+        #stopBtn { background: #ef4444; color: #fff; display: none; }
+
+        @keyframes pulseRecord {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+
+        #grid-container { 
+            position: relative; 
+            padding: 10px; 
+            background: var(--panel-bg); 
+            border-radius: 12px; 
+            transition: all 0.4s ease;
+            width: 100%; 
+            max-width: 400px; 
+            box-sizing: border-box;
+        }
+        #ghost-wave { 
+            position: absolute; 
+            top: 10px; left: 10px; right: 10px; bottom: 10px;
+            width: calc(100% - 20px); 
+            height: calc(100% - 20px); 
+            opacity: 0.2; 
+            pointer-events: none; 
+        }
+        #grid { 
+            display: grid; 
+            grid-template-columns: repeat(var(--cols, 3), 1fr); 
+            gap: 6px; 
+            width: 100%; 
+            position: relative; 
+        }
+        .piece { 
+            background: rgba(30, 41, 59, 0.95); 
+            cursor: pointer; 
+            border-radius: 6px; 
+            border: 2px solid #475569; 
+            overflow: hidden; 
+            aspect-ratio: 1 / 1;
+            display: flex; 
+            align-items: center; 
+            justify-content: center;
+            position: relative; 
+            touch-action: manipulation; 
+            transition: border-color 0.2s, transform 0.1s, background-color 0.2s;
+            font-size: 1.8rem;
+            color: #64748b;
+        }
+        .piece:active { transform: scale(0.96); }
+        .piece.correct { border-color: #0ea5e9; }
+        
+        /* Blank/missing slide slot */
+        .piece.empty {
+            background: #0f172a !important;
+            border: 2px dashed #334155 !important;
+            cursor: default;
+            box-shadow: inset 0px 0px 10px rgba(0,0,0,0.5);
+            background-image: none !important;
+        }
+
+        #status { 
+            margin: 14px 0 6px; 
+            font-weight: bold; 
+            min-height: 20px; 
+            text-align: center; 
+            font-size: 0.9rem;
+            max-width: 420px;
+            line-height: 1.4;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); box-shadow: 0 0 0px #38bdf8; }
+            50% { transform: scale(1.02); box-shadow: 0 0 25px #38bdf8; }
+            100% { transform: scale(1); box-shadow: 0 0 0px #38bdf8; }
+        }
+        .victory { animation: pulse 2s infinite ease-in-out; border: 2px solid #22c55e; }
     </style>
 </head>
-<body class="mode-easy">
+<body>
 
-    <h1>Pentatonic Grid Symphony</h1>
-
-    <!-- Top Mode Selector -->
-    <div class="mode-selector">
-        <button class="mode-btn active" id="btn-easy" onclick="setMode('easy')">Easy Mode</button>
-        <button class="mode-btn" id="btn-medium" onclick="setMode('medium')">Medium (Musical Sudoku)</button>
-        <button class="mode-btn" id="btn-ear" onclick="setMode('ear')">Pure Ear Symphony</button>
+    <div id="top-bar">
+        <button id="homeBtn" onclick="window.location.href='/Clean-start/index.html'">◀ Home</button>
+        <div id="grid-controls">
+            <button class="stepper-btn" onclick="changeGridSize(-1)">➖</button>
+            <span id="grid-size-label">3x3</span>
+            <button class="stepper-btn" onclick="changeGridSize(1)">➕</button>
+        </div>
     </div>
 
-    <p id="mode-description"></p>
-
-    <div class="game-layout">
-        <div class="top-triggers" id="top-triggers"></div>
-        <div class="side-triggers" id="side-triggers"></div>
-        <div id="sudoku-container"></div>
+    <!-- Mode Selector Navigation -->
+    <div class="mode-selector">
+        <button class="mode-btn active" id="btn-mode-easy" onclick="setMode('easy')">Easy (Audio & Image)</button>
+        <button class="mode-btn" id="btn-mode-medium" onclick="setMode('medium')">Medium (Waveform)</button>
+        <button class="mode-btn" id="btn-mode-hard" onclick="setMode('hard')">Hard (Pure Audio)</button>
     </div>
 
     <div id="controls">
-        <button class="action-btn" id="random-btn" onclick="generateNewPuzzle()">Generate New Puzzle</button>
-        <button class="action-btn" id="check-btn" onclick="checkFullSymphony()">Check Symphony</button>
-        <button class="action-btn" onclick="resetToCurrentClues()">Reset Board</button>
-        <button class="action-btn" id="homeBtn" onclick="window.location.href='/Clean-start/index.html'">◀ Home</button>
+        <label class="btn btn-audio">
+            📂 LOAD AUDIO
+            <input type="file" id="audioUpload" accept="audio/*" style="display: none;">
+        </label>
+
+        <label class="btn btn-image" id="labelImageUpload">
+            🖼️ LOAD IMAGE
+            <input type="file" id="imageUpload" accept="image/*" style="display: none;">
+        </label>
+        
+        <button id="recordBtn" class="btn btn-record">🎤 RECORD</button>
+        <button id="randomBtn" class="btn btn-random" onclick="manualShuffle()">🔀 SHUFFLE</button>
+        <button id="refBtn" class="btn" onclick="playReference()">REF AUDIO</button>
+        <button id="stopBtn" class="btn" onclick="stopEverything()">STOP</button>
     </div>
 
-    <div id="message"></div>
+    <div id="grid-container">
+        <canvas id="ghost-wave"></canvas>
+        <div id="grid" style="--cols: 3;"></div>
+    </div>
 
-<script>
-    let audioCtx = null;
-    let currentMode = 'easy'; // 'easy' | 'medium' | 'ear'
+    <p id="status">Upload or record audio to build your sliding puzzle!</p>
 
-    const frequencies = { 'A': 440.00, 'C': 523.25, 'D': 587.33, 'E': 659.25, 'G': 783.99 };
-    const notesList = ['A', 'C', 'D', 'E', 'G'];
-    const cyclesList = ['', 'A', 'C', 'D', 'E', 'G'];
-
-    let currentBoard = Array(25).fill('');
-    let initialClues = Array(25).fill('');
-
-    const modeDescriptions = {
-        'easy': '<strong>Easy Mode:</strong> Letters (A, C, D, E, G) are visible on all placed and clue cells. Click to cycle forward, right-click to cycle backward.',
-        'medium': '<strong>Medium (Musical Sudoku):</strong> Starting clues are locked (🔒). Placed notes show musical markers (🎵). Rely on ear checks and playback triggers!',
-        'ear': '<strong>Pure Ear Symphony:</strong> Ultimate relative pitch test. No letters shown. Click 🔒 clues to hear their pitch and solve entirely by ear.'
-    };
-
-    function setMode(mode) {
-        currentMode = mode;
-        document.body.className = `mode-${mode}`;
+    <script>
+        let audioCtx, mainBuffer;
+        let activeSources = []; 
         
-        document.querySelectorAll('.mode-btn').forEach(btn => btn.classList.remove('active'));
-        document.getElementById(`btn-${mode}`).classList.add('active');
+        let mediaRecorder;
+        let audioChunks = [];
+        let isRecording = false;
         
-        document.getElementById('mode-description').innerHTML = modeDescriptions[mode];
-        renderCells();
-    }
+        let currentMode = 'easy'; // 'easy' | 'medium' | 'hard'
+        let gridSize = 3; 
+        let totalPieces = gridSize * gridSize;
+        let pieces = [];
+        let emptyIndex = null;
+        
+        let waveformImageSrc = null; 
+        let uploadedImageSrc = null;
 
-    function initAudio() {
-        if (!audioCtx) {
-            try {
-                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-            } catch (e) {
-                console.error("Audio Context initialization failed:", e);
+        function setMode(mode) {
+            currentMode = mode;
+            document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+            document.getElementById(`btn-mode-${mode}`).classList.add('active');
+
+            const imgUploadBtn = document.getElementById('labelImageUpload');
+            const ghostCanvas = document.getElementById('ghost-wave');
+
+            if (mode === 'easy') {
+                imgUploadBtn.style.display = 'inline-flex';
+                ghostCanvas.style.display = 'block';
+            } else if (mode === 'medium') {
+                imgUploadBtn.style.display = 'none';
+                ghostCanvas.style.display = 'block';
+            } else if (mode === 'hard') {
+                imgUploadBtn.style.display = 'none';
+                ghostCanvas.style.display = 'none';
             }
-        }
-    }
 
-    function playNote(note, duration = 0.5) {
-        if (!note || !frequencies[note]) return;
-        initAudio();
-        if (!audioCtx) return;
-        
-        if (audioCtx.state === 'suspended') audioCtx.resume();
-
-        const oscillator = audioCtx.createOscillator();
-        const gainNode = audioCtx.createGain();
-        
-        oscillator.type = 'sine';
-        oscillator.frequency.setValueAtTime(frequencies[note], audioCtx.currentTime);
-        gainNode.gain.setValueAtTime(0.25, audioCtx.currentTime);
-        gainNode.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + duration);
-        
-        oscillator.connect(gainNode);
-        gainNode.connect(audioCtx.destination);
-        
-        oscillator.start();
-        oscillator.stop(audioCtx.currentTime + duration);
-    }
-
-    function playSequence(noteArray) {
-        let delay = 0;
-        noteArray.forEach(note => {
-            if (note !== '') {
-                setTimeout(() => playNote(note, 0.4), delay);
-                delay += 250;
-            }
-        });
-    }
-
-    function generateValidGrid() {
-        let grid = Array(25).fill('');
-        
-        function isValidPlacement(g, row, col, note) {
-            for (let i = 0; i < 5; i++) {
-                if (g[row * 5 + i] === note) return false;
-                if (g[i * 5 + col] === note) return false;
-            }
-            return true;
+            updateGhostCanvas();
+            render();
         }
 
-        function solve(idx) {
-            if (idx === 25) return true;
-            let row = Math.floor(idx / 5);
-            let col = idx % 5;
-            let shuffled = [...notesList].sort(() => Math.random() - 0.5);
-            
-            for (let note of shuffled) {
-                if (isValidPlacement(grid, row, col, note)) {
-                    grid[idx] = note;
-                    if (solve(idx + 1)) return true;
-                    grid[idx] = '';
+        function isSolvable(arr, width) {
+            let inversions = 0;
+            const values = arr.filter(v => v !== null);
+            for (let i = 0; i < values.length; i++) {
+                for (let j = i + 1; j < values.length; j++) {
+                    if (values[i] > values[j]) inversions++;
                 }
             }
-            return false;
-        }
-
-        solve(0);
-        return grid;
-    }
-
-    function generateNewPuzzle() {
-        const perfectSolution = generateValidGrid();
-        initialClues = Array(25).fill('');
-        
-        let indices = [];
-        while (indices.length < 11) {
-            let r = Math.floor(Math.random() * 25);
-            if (!indices.includes(r)) indices.push(r);
-        }
-
-        indices.forEach(idx => {
-            initialClues[idx] = perfectSolution[idx];
-        });
-
-        resetToCurrentClues();
-    }
-
-    function buildTriggers() {
-        const topTriggers = document.getElementById('top-triggers');
-        const sideTriggers = document.getElementById('side-triggers');
-        topTriggers.innerHTML = '';
-        sideTriggers.innerHTML = '';
-
-        for (let i = 0; i < 5; i++) {
-            const colBtn = document.createElement('button');
-            colBtn.className = 'trigger-btn';
-            colBtn.textContent = '▼';
-            colBtn.addEventListener('click', () => {
-                let colNotes = [];
-                for (let r = 0; r < 5; r++) colNotes.push(currentBoard[r * 5 + i]);
-                playSequence(colNotes);
-            });
-            topTriggers.appendChild(colBtn);
-
-            const rowBtn = document.createElement('button');
-            rowBtn.className = 'trigger-btn';
-            rowBtn.textContent = '▶';
-            rowBtn.addEventListener('click', () => {
-                let rowNotes = [];
-                for (let c = 0; c < 5; c++) rowNotes.push(currentBoard[i * 5 + c]);
-                playSequence(rowNotes);
-            });
-            sideTriggers.appendChild(rowBtn);
-        }
-    }
-
-    function renderCells() {
-        for (let index = 0; index < 25; index++) {
-            const cell = document.getElementById(`cell-${index}`);
-            if (!cell) continue;
-
-            const isClue = initialClues[index] !== '';
-            const val = currentBoard[index];
-
-            if (currentMode === 'easy') {
-                cell.textContent = val;
-                cell.classList.remove('has-note');
-            } else if (currentMode === 'medium') {
-                cell.textContent = '';
-                if (!isClue && val !== '') {
-                    cell.classList.add('has-note');
-                } else {
-                    cell.classList.remove('has-note');
-                }
-            } else if (currentMode === 'ear') {
-                cell.textContent = (!isClue && val !== '') ? '🎵' : '';
-                cell.classList.remove('has-note');
-            }
-        }
-        scanForConflicts();
-    }
-
-    function resetToCurrentClues() {
-        const container = document.getElementById('sudoku-container');
-        container.innerHTML = '';
-        currentBoard = [...initialClues];
-
-        for (let index = 0; index < 25; index++) {
-            const cell = document.createElement('div');
-            cell.className = 'cell';
-            cell.id = `cell-${index}`;
-
-            if (initialClues[index] !== '') {
-                cell.classList.add('clue-hint');
-                cell.addEventListener('click', () => playNote(initialClues[index]));
+            if (width % 2 !== 0) {
+                return inversions % 2 === 0;
             } else {
-                cell.addEventListener('click', () => cycleNote(index, 1));
-                cell.addEventListener('contextmenu', (e) => {
-                    e.preventDefault();
-                    cycleNote(index, -1);
-                });
+                const emptyRow = Math.floor(arr.indexOf(null) / width);
+                const rowFromBottom = width - emptyRow;
+                return (rowFromBottom % 2 === 0) ? (inversions % 2 !== 0) : (inversions % 2 === 0);
+            }
+        }
+
+        function scramblePieces() {
+            let pool = Array.from({length: totalPieces - 1}, (_, i) => i);
+            do {
+                pool.sort(() => Math.random() - 0.5);
+                pieces = [...pool, null];
+            } while (!isSolvable(pieces, gridSize) || pieces.every((p, i) => (i === totalPieces - 1 ? p === null : p === i)));
+            emptyIndex = totalPieces - 1;
+        }
+        scramblePieces(); 
+
+        function manualShuffle() {
+            if (!mainBuffer) return;
+            stopEverything();
+            scramblePieces();
+            document.getElementById('grid-container').classList.remove('victory');
+            document.getElementById('status').innerText = "Matrix scrambled! Slide the tiles into position.";
+            render();
+        }
+
+        function changeGridSize(dir) {
+            let newSize = gridSize + dir;
+            if (newSize >= 3 && newSize <= 5) {
+                gridSize = newSize;
+                totalPieces = gridSize * gridSize;
+                
+                document.getElementById('grid-size-label').innerText = `${gridSize}x${gridSize}`;
+                document.getElementById('grid').style.setProperty('--cols', gridSize);
+                
+                scramblePieces();
+                stopEverything();
+                document.getElementById('grid-container').classList.remove('victory');
+                
+                if (mainBuffer) {
+                    document.getElementById('status').innerText = `Matrix updated to ${gridSize}x${gridSize}!`;
+                    generateWaveformGridImage();
+                }
+                updateGhostCanvas();
+                render();
+            }
+        }
+
+        function initAudioCtx() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+        }
+
+        async function processAudioData(arrayBuffer) {
+            const status = document.getElementById('status');
+            status.innerText = "Decoding Audio Framework...";
+            try {
+                mainBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+                
+                document.getElementById('refBtn').style.display = 'inline-block';
+                document.getElementById('stopBtn').style.display = 'inline-block';
+                document.getElementById('randomBtn').style.display = 'inline-block';
+                
+                status.innerText = "Audio loaded! Slide the pieces adjacent to the empty spot.";
+                
+                scramblePieces();
+                document.getElementById('grid-container').classList.remove('victory');
+                
+                generateWaveformGridImage();
+                updateGhostCanvas();
+                render();
+            } catch (e) {
+                status.innerText = "❌ Error reading audio file!";
+                console.error(e);
+            }
+        }
+
+        document.getElementById('audioUpload').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            initAudioCtx();
+            const reader = new FileReader();
+            reader.onload = async function(ev) { await processAudioData(ev.target.result); };
+            reader.readAsArrayBuffer(file);
+        });
+
+        document.getElementById('imageUpload').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(ev) {
+                uploadedImageSrc = ev.target.result;
+                updateGhostCanvas();
+                render(); 
+            };
+            reader.readAsDataURL(file);
+        });
+
+        document.getElementById('recordBtn').addEventListener('click', async () => {
+            const recordBtn = document.getElementById('recordBtn');
+            const status = document.getElementById('status');
+
+            if (!isRecording) {
+                try {
+                    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                    mediaRecorder = new MediaRecorder(stream);
+                    audioChunks = [];
+                    mediaRecorder.ondataavailable = e => { if (e.data.size > 0) audioChunks.push(e.data); };
+                    mediaRecorder.onstop = async () => {
+                        initAudioCtx();
+                        const audioBlob = new Blob(audioChunks);
+                        const arrayBuffer = await audioBlob.arrayBuffer();
+                        await processAudioData(arrayBuffer);
+                    };
+                    mediaRecorder.start();
+                    isRecording = true;
+                    recordBtn.innerText = "🛑 STOP";
+                    recordBtn.classList.add('recording');
+                    status.innerText = "🔴 Capturing mic feed...";
+                } catch (err) {
+                    status.innerText = "❌ Microphone access failed.";
+                    console.error(err);
+                }
+            } else {
+                mediaRecorder.stop();
+                isRecording = false;
+                recordBtn.innerText = "🎤 RECORD";
+                recordBtn.classList.remove('recording');
+            }
+        });
+
+        function stopEverything() {
+            activeSources.forEach(s => { try { s.stop(); } catch(e) {} });
+            activeSources = [];
+        }
+
+        function playSlice(idx) {
+            if (!mainBuffer || idx === null) return;
+            stopEverything(); 
+            const source = audioCtx.createBufferSource();
+            const gainNode = audioCtx.createGain();
+            source.buffer = mainBuffer;
+            
+            const sliceWidth = mainBuffer.duration / totalPieces;
+            const startOffset = idx * sliceWidth;
+            const playDuration = sliceWidth;
+
+            source.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+            
+            gainNode.gain.setValueAtTime(0.001, audioCtx.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(1, audioCtx.currentTime + 0.01);
+            gainNode.gain.setValueAtTime(1, audioCtx.currentTime + playDuration - 0.01);
+            gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + playDuration);
+            
+            source.start(0, startOffset, playDuration);
+            activeSources.push(source);
+        }
+
+        function playReference() {
+            if (!mainBuffer) return;
+            stopEverything();
+            const source = audioCtx.createBufferSource();
+            source.buffer = mainBuffer;
+            source.connect(audioCtx.destination);
+            source.start(0);
+            activeSources.push(source);
+        }
+
+        function extractWaveformData(buffer, pointsNeeded) {
+            if (!buffer) return new Float32Array(pointsNeeded).fill(0);
+            const rawData = buffer.getChannelData(0);
+            const step = Math.floor(rawData.length / pointsNeeded);
+            const peaks = new Float32Array(pointsNeeded);
+            for (let i = 0; i < pointsNeeded; i++) {
+                let max = 0; let start = i * step;
+                for (let j = 0; j < step; j++) {
+                    let val = Math.abs(rawData[start + j] || 0);
+                    if (val > max) max = val;
+                }
+                peaks[i] = max;
+            }
+            return peaks;
+        }
+
+        function generateWaveformGridImage() {
+            if (!mainBuffer) return;
+            const canvas = document.createElement('canvas');
+            const size = 600; 
+            canvas.width = size;
+            canvas.height = size;
+            const ctx = canvas.getContext('2d');
+            
+            ctx.fillStyle = '#1e293b';
+            ctx.fillRect(0, 0, size, size);
+
+            const cellSize = size / gridSize;
+            const totalPoints = size * gridSize; 
+            const peaks = extractWaveformData(mainBuffer, totalPoints);
+            
+            ctx.strokeStyle = '#a855f7'; 
+            ctx.lineWidth = 2.5;
+            ctx.shadowBlur = 4;
+            ctx.shadowColor = '#a855f7';
+            
+            for (let row = 0; row < gridSize; row++) {
+                for (let col = 0; col < gridSize; col++) {
+                    const cellIndex = (row * gridSize) + col;
+                    const startX = col * cellSize;
+                    const centerY = (row * cellSize) + (cellSize / 2);
+                    
+                    ctx.beginPath();
+                    const segmentPoints = size / gridSize;
+                    const segmentStartPeakIdx = cellIndex * segmentPoints;
+
+                    for (let localX = 0; localX < cellSize; localX++) {
+                        const globalX = startX + localX;
+                        const peakIdx = Math.floor(segmentStartPeakIdx + ((localX / cellSize) * segmentPoints));
+                        const amp = (peaks[peakIdx] || 0) * (cellSize / 2.3); 
+                        
+                        if (localX === 0) ctx.moveTo(globalX, centerY);
+                        ctx.lineTo(globalX, centerY - amp);
+                        ctx.lineTo(globalX, centerY + amp);
+                    }
+                    ctx.stroke();
+                }
+            }
+            waveformImageSrc = canvas.toDataURL();
+        }
+
+        function updateGhostCanvas() {
+            const canvas = document.getElementById('ghost-wave');
+            const container = document.getElementById('grid-container');
+            const size = container.clientWidth - 20;
+            canvas.width = size; canvas.height = size;
+            const ctx = canvas.getContext('2d');
+            ctx.clearRect(0, 0, size, size);
+
+            if (currentMode === 'hard') return;
+            
+            let activeBgSrc = null;
+            if (currentMode === 'easy') {
+                activeBgSrc = uploadedImageSrc || waveformImageSrc;
+            } else if (currentMode === 'medium') {
+                activeBgSrc = waveformImageSrc;
+            }
+            
+            if (activeBgSrc) {
+                const img = new Image();
+                img.onload = () => {
+                    ctx.globalAlpha = 0.15;
+                    ctx.drawImage(img, 0, 0, size, size);
+                };
+                img.src = activeBgSrc;
+            }
+        }
+
+        function handleTileClick(index) {
+            const row = Math.floor(index / gridSize);
+            const col = index % gridSize;
+            const emptyRow = Math.floor(emptyIndex / gridSize);
+            const emptyCol = emptyIndex % gridSize;
+
+            const isAdjacent = (Math.abs(row - emptyRow) + Math.abs(col - emptyCol)) === 1;
+
+            if (isAdjacent) {
+                const movedPiece = pieces[index];
+                pieces[emptyIndex] = movedPiece;
+                pieces[index] = null;
+                emptyIndex = index;
+                
+                playSlice(movedPiece);
+                render();
+            } else if (pieces[index] !== null) {
+                playSlice(pieces[index]);
+            }
+        }
+
+        function render() {
+            const grid = document.getElementById('grid');
+            const container = document.getElementById('grid-container');
+            grid.innerHTML = '';
+            
+            const isSolved = pieces.every((p, i) => (i === totalPieces - 1 ? p === null : p === i));
+
+            let activePieceBg = null;
+            if (currentMode === 'easy') {
+                activePieceBg = uploadedImageSrc || waveformImageSrc;
+            } else if (currentMode === 'medium') {
+                activePieceBg = waveformImageSrc;
             }
 
-            container.appendChild(cell);
-        }
-        document.getElementById('message').textContent = '';
-        renderCells();
-    }
+            pieces.forEach((pIdx, i) => {
+                const div = document.createElement('div');
+                div.className = `piece ${pIdx === i ? 'correct' : ''}`;
+                
+                if (pIdx === null) {
+                    div.classList.add('empty');
+                } else {
+                    const origCol = pIdx % gridSize;
+                    const origRow = Math.floor(pIdx / gridSize);
+                    
+                    if (currentMode === 'hard') {
+                        div.style.backgroundImage = 'none';
+                        div.textContent = '🎵';
+                    } else {
+                        div.textContent = '';
+                        if (activePieceBg) {
+                            div.style.backgroundImage = `url(${activePieceBg})`;
+                            div.style.backgroundSize = `${gridSize * 100}% ${gridSize * 100}%`;
+                            div.style.backgroundPosition = `${(origCol / (gridSize - 1)) * 100}% ${(origRow / (gridSize - 1)) * 100}%`;
+                        } else {
+                            div.style.backgroundImage = 'none';
+                        }
+                    }
 
-    function cycleNote(index, direction) {
-        let currentNote = currentBoard[index];
-        let currentIndex = cyclesList.indexOf(currentNote);
+                    div.onclick = () => handleTileClick(i);
+                }
+                
+                grid.appendChild(div);
+            });
+
+            if (isSolved && mainBuffer) { 
+                document.getElementById('status').innerText = "🎉 SLIDER SOLVED PERFECTLY!";
+                container.classList.add('victory');
+                playReference();
+            }
+        }
         
-        let nextIndex = (currentIndex + direction + cyclesList.length) % cyclesList.length;
-        let nextNote = cyclesList[nextIndex];
-        
-        currentBoard[index] = nextNote;
-        if (nextNote !== '') playNote(nextNote);
-
-        renderCells();
-    }
-
-    function scanForConflicts() {
-        for (let i = 0; i < 25; i++) {
-            const el = document.getElementById(`cell-${i}`);
-            if (el) el.classList.remove('conflict');
-        }
-
-        for (let index = 0; index < 25; index++) {
-            let note = currentBoard[index];
-            if (note === '') continue;
-
-            const row = Math.floor(index / 5);
-            const col = index % 5;
-            let hasConflict = false;
-
-            for (let j = 0; j < 5; j++) {
-                let targetIdx = row * 5 + j;
-                if (targetIdx !== index && currentBoard[targetIdx] === note) hasConflict = true;
-            }
-
-            for (let i = 0; i < 5; i++) {
-                let targetIdx = i * 5 + col;
-                if (targetIdx !== index && currentBoard[targetIdx] === note) hasConflict = true;
-            }
-
-            if (hasConflict) {
-                const el = document.getElementById(`cell-${index}`);
-                if (el) el.classList.add('conflict');
-            }
-        }
-    }
-
-    function checkFullSymphony() {
-        const msg = document.getElementById('message');
-        
-        if (currentBoard.includes('')) {
-            msg.style.color = '#e67e22';
-            msg.textContent = "The board isn't completely filled yet!";
-            return;
-        }
-
-        let conflicts = document.querySelectorAll('.conflict');
-        if (conflicts.length > 0) {
-            msg.style.color = '#e74c3c';
-            msg.textContent = "Dissonance! Resolve conflicting notes.";
-            return;
-        }
-
-        const isUnique5 = (arr) => new Set(arr).size === 5;
-
-        for (let i = 0; i < 5; i++) {
-            let row = []; let col = [];
-            for (let j = 0; j < 5; j++) {
-                row.push(currentBoard[i * 5 + j]);
-                col.push(currentBoard[j * 5 + i]);
-            }
-            if (!isUnique5(row) || !isUnique5(col)) {
-                msg.style.color = '#e74c3c';
-                msg.textContent = "Validation error inside rows or columns.";
-                return;
-            }
-        }
-
-        msg.style.color = '#2ecc71';
-        msg.textContent = "🎉 Perfect Harmony! Solved flawlessly!";
-        playSequence(['A', 'C', 'D', 'E', 'G']);
-    }
-
-    window.addEventListener('DOMContentLoaded', () => {
-        buildTriggers();
-        setMode('easy');
-        generateNewPuzzle();
-    });
-</script>
+        window.addEventListener('resize', updateGhostCanvas);
+        window.addEventListener('DOMContentLoaded', () => {
+            setMode('easy');
+        });
+    </script>
 </body>
 </html>
