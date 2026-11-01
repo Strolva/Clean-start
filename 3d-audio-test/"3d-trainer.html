@@ -1,155 +1,517 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>3D Spatial Trainer</title>
+    <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>3D Spatial Audio Sphere Trainer</title>
+    <!-- Three.js and OrbitControls via CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
     <style>
-        body { background: #0f172a; color: #38bdf8; font-family: sans-serif; text-align: center; margin: 0; touch-action: none; }
-        #container { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; gap: 20px; }
-        
-        #radar { 
-            width: 280px; height: 280px; border: 2px solid #38bdf8; 
-            border-radius: 50%; position: relative;
-            background: radial-gradient(circle, #1e293b 0%, #0f172a 70%);
-        }
-        #listener { 
-            width: 20px; height: 20px; background: white; border-radius: 50%;
-            position: absolute; top: 130px; left: 130px; box-shadow: 0 0 15px white;
-        }
-        #sound-source {
-            width: 50px; height: 50px; background: #ef4444; border-radius: 50%;
-            position: absolute; cursor: grab; box-shadow: 0 0 15px #ef4444;
-            display: flex; align-items: center; justify-content: center; color: white; font-weight: bold;
+        :root {
+            --bg-color: #0b0f19;
+            --panel-bg: rgba(15, 23, 42, 0.85);
+            --accent-cyan: #38bdf8;
+            --accent-red: #ef4444;
+            --text-color: #e2e8f0;
         }
 
-        .slider-wrap { width: 280px; display: flex; flex-direction: column; gap: 10px; }
-        input[type=range] { width: 100%; cursor: pointer; }
-        
-        button { padding: 15px 30px; font-size: 1.2rem; background: #38bdf8; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; color: #0f172a; }
-        #resetBtn { background: #64748b; color: white; margin-top: 10px; font-size: 0.9rem; padding: 10px 20px; }
+        * { box-sizing: border-box; user-select: none; }
+        body {
+            margin: 0;
+            padding: 0;
+            background: var(--bg-color);
+            color: var(--text-color);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            overflow: hidden;
+            width: 100vw;
+            height: 100vh;
+        }
+
+        #canvas-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+        }
+
+        /* Floating HUD Controls */
+        #ui-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 10;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 16px;
+        }
+
+        .hud-panel {
+            background: var(--panel-bg);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(56, 189, 248, 0.25);
+            border-radius: 12px;
+            padding: 12px 18px;
+            pointer-events: auto;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+        }
+
+        #top-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        h1 {
+            margin: 0;
+            font-size: 1.1rem;
+            letter-spacing: 1px;
+            color: var(--accent-cyan);
+            text-transform: uppercase;
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        button {
+            background: var(--accent-cyan);
+            color: #0b0f19;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-weight: 700;
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        button:hover { filter: brightness(1.15); transform: translateY(-1px); }
+        button:active { transform: translateY(0); }
+        button.secondary { background: #334155; color: #fff; }
+        button.active-toggle { background: #10b981; color: #fff; }
+
+        #bottom-panel {
+            max-width: 540px;
+            margin: 0 auto;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .slider-row {
+            display: grid;
+            grid-template-columns: 80px 1fr 50px;
+            align-items: center;
+            gap: 10px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: #94a3b8;
+        }
+
+        input[type=range] {
+            width: 100%;
+            accent-color: var(--accent-cyan);
+            cursor: pointer;
+        }
+
+        .readout {
+            font-family: monospace;
+            color: var(--accent-cyan);
+            text-align: right;
+            font-size: 0.85rem;
+        }
+
+        #instructions {
+            position: absolute;
+            bottom: 16px;
+            left: 16px;
+            font-size: 0.75rem;
+            color: #64748b;
+            line-height: 1.4;
+        }
+
+        @media (max-width: 600px) {
+            #instructions { display: none; }
+            #top-bar { justify-content: center; }
+            h1 { font-size: 0.95rem; width: 100%; text-align: center; }
+        }
     </style>
 </head>
 <body>
 
-<div id="container">
-    <h2>3D POSITIONAL TRAINER</h2>
-    
-    <div>
-        <button id="startBtn">INITIALIZE 3D ENGINE</button>
-        <button id="resetBtn">RESET TO CENTER</button>
+<div id="canvas-container"></div>
+
+<div id="ui-overlay">
+    <div id="top-bar" class="hud-panel">
+        <div>
+            <h1>3D Audio Sphere Studio</h1>
+            <div id="audio-status" style="font-size: 0.75rem; color: #64748b;">ENGINE STANDBY</div>
+        </div>
+        <div class="btn-group">
+            <button id="startBtn">START AUDIO</button>
+            <button id="trackBtn" class="secondary">HEAD TRACK: OFF</button>
+            <button id="resetBtn" class="secondary">RESET</button>
+        </div>
     </div>
 
-    <div id="radar">
-        <div id="listener"></div>
-        <div id="sound-source">DRAG</div>
+    <div id="instructions">
+        • <strong>Left Click + Drag:</strong> Orbit camera around sphere<br>
+        • <strong>Right Click / 2-finger:</strong> Pan camera<br>
+        • <strong>Scroll / Pinch:</strong> Zoom in/out
     </div>
 
-    <div class="slider-wrap">
-        <label>HEIGHT (Above / Below)</label>
-        <input type="range" id="yAxis" min="-10" max="10" step="0.1" value="0">
-        <div style="display:flex; justify-content: space-between; font-size: 0.8rem;">
-            <span>BELOW</span><span>EYE LEVEL</span><span>ABOVE</span>
+    <div id="bottom-panel" class="hud-panel">
+        <div class="slider-row">
+            <span>AZIMUTH</span>
+            <input type="range" id="azimuthSlider" min="0" max="360" step="1" value="45">
+            <span class="readout" id="azimuthVal">45°</span>
+        </div>
+        <div class="slider-row">
+            <span>ELEVATION</span>
+            <input type="range" id="elevationSlider" min="-90" max="90" step="1" value="0">
+            <span class="readout" id="elevationVal">0°</span>
+        </div>
+        <div class="slider-row">
+            <span>DISTANCE</span>
+            <input type="range" id="distanceSlider" min="1" max="6" step="0.1" value="3.5">
+            <span class="readout" id="distanceVal">3.5m</span>
         </div>
     </div>
 </div>
 
 <script>
-    let audioCtx, panner, source;
-    const radar = document.getElementById('radar');
-    const sourceDiv = document.getElementById('sound-source');
-    const yAxis = document.getElementById('yAxis');
-    const startBtn = document.getElementById('startBtn');
-    const resetBtn = document.getElementById('resetBtn');
+    /* ==========================================================
+       1. WEB AUDIO API & HRTF PANNER SETUP
+       ========================================================== */
+    let audioCtx, panner, sourceNode, isRunning = false;
+    let trackHead = false;
 
-    let posX = 115, posY = 40; // Initial visual position
-    sourceDiv.style.left = posX + 'px';
-    sourceDiv.style.top = posY + 'px';
+    async function initAudio() {
+        if (audioCtx) {
+            if (audioCtx.state === 'suspended') await audioCtx.resume();
+            return;
+        }
 
-    // THE CLEANED UP INIT FUNCTION
-    async function init() {
-        if (audioCtx) return; // Don't start twice
-        
-        // 1. Initialize the Engine
         audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        panner = new PannerNode(audioCtx, { panningModel: 'HRTF', distanceModel: 'inverse' });
+        
+        // Setup listener at origin facing forward (-Z axis in Three.js coordinates)
+        if (audioCtx.listener.positionX) {
+            audioCtx.listener.positionX.value = 0;
+            audioCtx.listener.positionY.value = 0;
+            audioCtx.listener.positionZ.value = 0;
+            audioCtx.listener.forwardX.value = 0;
+            audioCtx.listener.forwardY.value = 0;
+            audioCtx.listener.forwardZ.value = -1;
+            audioCtx.listener.upX.value = 0;
+            audioCtx.listener.upY.value = 1;
+            audioCtx.listener.upZ.value = 0;
+        } else {
+            audioCtx.listener.setOrientation(0, 0, -1, 0, 1, 0);
+        }
+
+        // Setup HRTF spatial panner
+        panner = new PannerNode(audioCtx, {
+            panningModel: 'HRTF',
+            distanceModel: 'inverse',
+            refDistance: 1.5,
+            maxDistance: 100,
+            rolloffFactor: 1
+        });
+
+        const statusEl = document.getElementById('audio-status');
+        const startBtn = document.getElementById('startBtn');
 
         try {
-            // 2. Load and Decode the File
+            // Attempt to load mysound.mp3
             const resp = await fetch('./mysound.mp3');
-            const arrayBuffer = await resp.arrayBuffer();
-            const buffer = await audioCtx.decodeAudioData(arrayBuffer);
+            if (!resp.ok) throw new Error("File not found");
+            const buf = await audioCtx.decodeAudioData(await resp.arrayBuffer());
 
-            // 3. Setup the Source with the LOOP CROP
-            source = audioCtx.createBufferSource();
-            source.buffer = buffer;
-            source.loop = true;
+            sourceNode = audioCtx.createBufferSource();
+            sourceNode.buffer = buf;
+            sourceNode.loop = true;
+            sourceNode.connect(panner).connect(audioCtx.destination);
+            sourceNode.start(0);
 
-            // Adjust the '- 2.0' to trim silence at the end
-            source.loopStart = 0; 
-            source.loopEnd = buffer.duration - 2.0; 
+            statusEl.innerText = "PLAYING: mysound.mp3 (HRTF)";
+            statusEl.style.color = "#38bdf8";
+        } catch (e) {
+            // Smooth Fallback: Synthesizer pulse train so audio works immediately
+            console.warn("mysound.mp3 not found, using continuous harmonic tone.", e);
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(220, audioCtx.currentTime);
+            gain.gain.setValueAtTime(0.12, audioCtx.currentTime);
 
-            // 4. Connect and Start
-            source.connect(panner).connect(audioCtx.destination);
-            source.start(0); 
+            osc.connect(gain);
+            gain.connect(panner).connect(audioCtx.destination);
+            osc.start();
 
-            // 5. Update UI
-            startBtn.innerText = "ENGINE RUNNING";
-            startBtn.style.opacity = "0.5";
-            updateSpatialAudio();
-
-        } catch (err) {
-            console.error("Audio failed to load:", err);
-            alert("Make sure mysound.mp3 is in the same folder!");
+            statusEl.innerText = "SYNTH DEMO TONE ACTIVE (Place mysound.mp3 to replace)";
+            statusEl.style.color = "#f59e0b";
         }
-    } // This } closes the init function properly!
 
-    function updateSpatialAudio() {
-        if (!panner) return;
-        const x3D = (posX - 115) / 20; 
-        const z3D = (posY - 115) / 20; 
-        const y3D = parseFloat(yAxis.value);
-
-        panner.positionX.value = x3D;
-        panner.positionY.value = y3D;
-        panner.positionZ.value = z3D;
+        startBtn.innerText = "AUDIO RUNNING";
+        startBtn.style.opacity = "0.6";
+        isRunning = true;
+        syncSoundPosition();
     }
 
-    function handleMove(e) {
-        e.preventDefault();
-        const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-        const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-        
-        const rect = radar.getBoundingClientRect();
-        posX = clientX - rect.left - 25;
-        posY = clientY - rect.top - 25;
+    /* ==========================================================
+       2. THREE.JS 3D SCENE & HUMAN HEAD MODEL
+       ========================================================== */
+    const container = document.getElementById('canvas-container');
+    const scene = new THREE.Scene();
+    scene.fog = new THREE.FogExp2(0x0b0f19, 0.04);
 
-        sourceDiv.style.left = posX + 'px';
-        sourceDiv.style.top = posY + 'px';
-        updateSpatialAudio();
+    const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
+    camera.position.set(0, 3, 7.5);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.shadowMap.enabled = true;
+    container.appendChild(renderer.domElement);
+
+    const controls = new THREE.OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.05;
+    controls.maxDistance = 14;
+    controls.minDistance = 2;
+
+    // Ambient & Studio Lights
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
+    scene.add(ambientLight);
+
+    const keyLight = new THREE.DirectionalLight(0x38bdf8, 1.2);
+    keyLight.position.set(5, 8, 5);
+    scene.add(keyLight);
+
+    const rimLight = new THREE.DirectionalLight(0xa855f7, 0.8);
+    rimLight.position.set(-5, 4, -5);
+    scene.add(rimLight);
+
+    // Floor Grid
+    const grid = new THREE.GridHelper(14, 28, 0x1e293b, 0x0f172a);
+    grid.position.y = -1.6;
+    scene.add(grid);
+
+    // Holographic Bounding Sphere
+    const sphereRadius = 4.0;
+    const sphereGeo = new THREE.SphereGeometry(sphereRadius, 32, 24);
+    const sphereMat = new THREE.MeshBasicMaterial({
+        color: 0x38bdf8,
+        wireframe: true,
+        transparent: true,
+        opacity: 0.08
+    });
+    const boundingSphere = new THREE.Mesh(sphereGeo, sphereMat);
+    scene.add(boundingSphere);
+
+    // Equator Ring
+    const ringGeo = new THREE.RingGeometry(sphereRadius - 0.02, sphereRadius + 0.02, 64);
+    const ringMat = new THREE.MeshBasicMaterial({ color: 0x38bdf8, side: THREE.DoubleSide, transparent: true, opacity: 0.25 });
+    const equatorRing = new THREE.Mesh(ringGeo, ringMat);
+    equatorRing.rotation.x = Math.PI / 2;
+    scene.add(equatorRing);
+
+    /* --- Build Stylized 3D Listener Head & Bust --- */
+    const headGroup = new THREE.Group();
+
+    // Material for Head
+    const skinMat = new THREE.MeshStandardMaterial({
+        color: 0x24324d,
+        roughness: 0.4,
+        metalness: 0.2,
+        flatShading: true
+    });
+
+    // Cranium
+    const craniumGeo = new THREE.SphereGeometry(0.7, 16, 16);
+    craniumGeo.scale(0.85, 1.1, 0.95);
+    const cranium = new THREE.Mesh(craniumGeo, skinMat);
+    cranium.position.y = 0.2;
+    headGroup.add(cranium);
+
+    // Jaw / Chin
+    const jawGeo = new THREE.CylinderGeometry(0.45, 0.25, 0.6, 12);
+    const jaw = new THREE.Mesh(jawGeo, skinMat);
+    jaw.position.set(0, -0.3, 0.1);
+    headGroup.add(jaw);
+
+    // Nose (defines forward direction -Z)
+    const noseGeo = new THREE.ConeGeometry(0.12, 0.35, 6);
+    const nose = new THREE.Mesh(noseGeo, skinMat);
+    nose.rotation.x = -Math.PI / 2;
+    nose.position.set(0, 0.05, -0.68);
+    headGroup.add(nose);
+
+    // Ears (Binaural reference points)
+    const earGeo = new THREE.BoxGeometry(0.12, 0.32, 0.2);
+    const earMat = new THREE.MeshStandardMaterial({ color: 0x38bdf8, roughness: 0.3, emissive: 0x0284c7, emissiveIntensity: 0.3 });
+    const leftEar = new THREE.Mesh(earGeo, earMat);
+    leftEar.position.set(-0.62, 0.1, 0);
+    headGroup.add(leftEar);
+
+    const rightEar = new THREE.Mesh(earGeo, earMat);
+    rightEar.position.set(0.62, 0.1, 0);
+    headGroup.add(rightEar);
+
+    // Shoulders / Bust
+    const bustGeo = new THREE.CylinderGeometry(0.28, 0.85, 0.8, 16);
+    const bustMat = new THREE.MeshStandardMaterial({ color: 0x131d31, roughness: 0.6 });
+    const bust = new THREE.Mesh(bustGeo, bustMat);
+    bust.position.set(0, -0.85, 0);
+    headGroup.add(bust);
+
+    scene.add(headGroup);
+
+    /* --- Sound Source Orb & Indicator Line --- */
+    const orbGroup = new THREE.Group();
+
+    // Glowing Core
+    const orbCoreGeo = new THREE.SphereGeometry(0.22, 24, 24);
+    const orbCoreMat = new THREE.MeshBasicMaterial({ color: 0xef4444 });
+    const orbCore = new THREE.Mesh(orbCoreGeo, orbCoreMat);
+    orbGroup.add(orbCore);
+
+    // Translucent Halo
+    const orbHaloGeo = new THREE.SphereGeometry(0.36, 24, 24);
+    const orbHaloMat = new THREE.MeshBasicMaterial({ color: 0xef4444, transparent: true, opacity: 0.25, wireframe: true });
+    const orbHalo = new THREE.Mesh(orbHaloGeo, orbHaloMat);
+    orbGroup.add(orbHalo);
+
+    // Point Light emitting from the sound
+    const soundLight = new THREE.PointLight(0xef4444, 2, 8);
+    orbGroup.add(soundLight);
+
+    scene.add(orbGroup);
+
+    // Sound Ray (Line from Head Center to Sound Orb)
+    const rayGeo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0, 0)]);
+    const rayMat = new THREE.LineDashedMaterial({ color: 0xef4444, dashSize: 0.15, gapSize: 0.08, transparent: true, opacity: 0.6 });
+    const soundRay = new THREE.Line(rayGeo, rayMat);
+    scene.add(soundRay);
+
+    /* ==========================================================
+       3. SPATIAL POSITION MATH & SYNCHRONIZATION
+       ========================================================== */
+    const azimuthSlider = document.getElementById('azimuthSlider');
+    const elevationSlider = document.getElementById('elevationSlider');
+    const distanceSlider = document.getElementById('distanceSlider');
+
+    const azimuthVal = document.getElementById('azimuthVal');
+    const elevationVal = document.getElementById('elevationVal');
+    const distanceVal = document.getElementById('distanceVal');
+
+    function syncSoundPosition() {
+        const azDeg = parseFloat(azimuthSlider.value);
+        const elDeg = parseFloat(elevationSlider.value);
+        const dist = parseFloat(distanceSlider.value);
+
+        azimuthVal.innerText = `${azDeg}°`;
+        elevationVal.innerText = `${elDeg}°`;
+        distanceVal.innerText = `${dist.toFixed(1)}m`;
+
+        // Spherical to Cartesian Coordinates
+        // 0° Azimuth = directly in front (-Z in Three.js)
+        // 90° Azimuth = to the right (+X)
+        const azRad = (azDeg - 90) * (Math.PI / 180);
+        const elRad = elDeg * (Math.PI / 180);
+
+        const x = dist * Math.cos(elRad) * Math.cos(azRad);
+        const y = dist * Math.sin(elRad);
+        const z = dist * Math.cos(elRad) * Math.sin(azRad);
+
+        orbGroup.position.set(x, y, z);
+
+        // Update Tracer Line
+        soundRay.geometry.setFromPoints([new THREE.Vector3(0, 0.15, 0), orbGroup.position]);
+        soundRay.computeLineDistances();
+
+        // Update Web Audio HRTF Panner
+        if (panner && audioCtx) {
+            panner.positionX.setTargetAtTime(x, audioCtx.currentTime, 0.02);
+            panner.positionY.setTargetAtTime(y, audioCtx.currentTime, 0.02);
+            panner.positionZ.setTargetAtTime(z, audioCtx.currentTime, 0.02);
+        }
+
+        // Real-time Head Tracking
+        if (trackHead) {
+            headGroup.lookAt(x, y, z);
+        } else {
+            // Keep head looking straight forward along -Z
+            headGroup.rotation.set(0, 0, 0);
+        }
     }
 
-    // Input Listeners
-    sourceDiv.onmousedown = () => { window.onmousemove = handleMove; };
-    window.onmouseup = () => { window.onmousemove = null; };
-    sourceDiv.ontouchstart = () => { sourceDiv.ontouchmove = handleMove; };
-    sourceDiv.ontouchend = () => { sourceDiv.ontouchmove = null; };
+    azimuthSlider.oninput = syncSoundPosition;
+    elevationSlider.oninput = syncSoundPosition;
+    distanceSlider.oninput = syncSoundPosition;
 
-    yAxis.oninput = updateSpatialAudio;
-    startBtn.onclick = init;
+    /* ==========================================================
+       4. INTERACTIVE CONTROLS & LISTENERS
+       ========================================================== */
+    document.getElementById('startBtn').onclick = initAudio;
 
-    // The Reset Logic
-    resetBtn.onclick = () => {
-        posX = 115; 
-        posY = 115; 
-        sourceDiv.style.left = posX + 'px';
-        sourceDiv.style.top = posY + 'px';
-        yAxis.value = 0;
-        if (panner) {
-            panner.positionX.value = 0;
-            panner.positionY.value = 0;
-            panner.positionZ.value = 0;
+    const trackBtn = document.getElementById('trackBtn');
+    trackBtn.onclick = () => {
+        trackHead = !trackHead;
+        if (trackHead) {
+            trackBtn.classList.remove('secondary');
+            trackBtn.classList.add('active-toggle');
+            trackBtn.innerText = "HEAD TRACK: ON";
+        } else {
+            trackBtn.classList.remove('active-toggle');
+            trackBtn.classList.add('secondary');
+            trackBtn.innerText = "HEAD TRACK: OFF";
         }
+        syncSoundPosition();
     };
+
+    document.getElementById('resetBtn').onclick = () => {
+        azimuthSlider.value = 0;
+        elevationSlider.value = 0;
+        distanceSlider.value = 3.5;
+        syncSoundPosition();
+        camera.position.set(0, 3, 7.5);
+        controls.target.set(0, 0, 0);
+    };
+
+    window.addEventListener('resize', () => {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+    // Animation Loop
+    let clock = new THREE.Clock();
+    function animate() {
+        requestAnimationFrame(animate);
+        const elapsedTime = clock.getElapsedTime();
+
+        // Gentle pulse on the sound orb halo
+        const pulse = 1 + Math.sin(elapsedTime * 4) * 0.12;
+        orbHalo.scale.set(pulse, pulse, pulse);
+
+        controls.update();
+        renderer.render(scene, camera);
+    }
+
+    syncSoundPosition();
+    animate();
 </script>
 </body>
 </html>
