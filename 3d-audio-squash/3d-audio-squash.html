@@ -243,7 +243,7 @@
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
                     </svg>
-                    <span>Back to Website Home (index.html)</span>
+                    <span>Back to Website Home (../index.html)</span>
                 </a>
             </div>
         </div>
@@ -1250,7 +1250,7 @@
         });
 
         // Cleanly stop audio before navigating back to the website's main index page
-        const WEBSITE_INDEX_URL = 'index.html';
+        const WEBSITE_INDEX_URL = '../index.html';
         ['website-home-link', 'overlay-website-home-link'].forEach((id) => {
             const linkEl = document.getElementById(id);
             if (linkEl) {
