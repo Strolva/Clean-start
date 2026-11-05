@@ -53,6 +53,47 @@
         /* Custom scrollbar if needed */
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-thumb { background: #4f46e5; border-radius: 3px; }
+        @media (max-width: 768px) {
+    /* Hide bulky telemetry panels, logo, and radar on mobile */
+    header > div:first-child,
+    footer > div:first-child {
+        display: none !important;
+    }
+    /* Move the action buttons to a single compact bar at the bottom */
+    header {
+        position: fixed;
+        bottom: 8px;
+        left: 8px;
+        right: 8px;
+        justify-content: center !important;
+        z-index: 30;
+    }
+    header > div:last-child {
+        width: 100%;
+        justify-content: space-between;
+        gap: 4px !important;
+    }
+    /* Make buttons compact so they fit on one line */
+    header button, header a, header label {
+        padding: 6px 8px !important;
+        font-size: 10px !important;
+    }
+    /* Keep only a tiny speed/spin pill at the very top of the screen */
+    footer {
+        position: fixed;
+        top: 8px;
+        left: 8px;
+        right: 8px;
+        align-items: center !important;
+    }
+    footer > div:last-child {
+        padding: 6px 12px !important;
+        width: auto !important;
+    }
+    #trackName, .spin-dial-ring {
+        display: none !important;
+    }
+}
     </style>
 </head>
 <body class="text-slate-100">
