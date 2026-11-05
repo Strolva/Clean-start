@@ -3,439 +3,1137 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>3D Audio Squash</title>
-    
-    <!-- External Libraries -->
+    <title>3D Audio Squash — Spin & Spatial Sound Court</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    
     <style>
-        /* Core Reset & Full Screen Canvas */
-        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background-color: #0f172a; touch-action: none; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
-        #canvas-container { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; }
-        
-        /* UI Overlays */
-        #ui-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 10; pointer-events: none; display: flex; flex-direction: column; justify-content: space-between; padding: 1rem; }
-        .pointer-auto { pointer-events: auto; }
-        .glass { background: rgba(15, 23, 42, 0.7); backdrop-filter: blur(8px); border: 1px solid rgba(148, 163, 184, 0.2); }
-        
-        /* Modal Base */
-        #modal { position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 50; display: flex; align-items: center; justify-content: center; opacity: 1; transition: opacity 0.3s; pointer-events: auto; }
-        #modal.hidden { opacity: 0; pointer-events: none; }
-        
-        /* Mobile Specific UI Cleanup */
+        @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap');
+
+        * {
+            user-select: none;
+            -webkit-user-select: none;
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background-color: #05070f;
+            font-family: 'Space Grotesk', sans-serif;
+            color: #e2e8f0;
+            touch-action: none;
+            overscroll-behavior: none;
+        }
+
+        #canvas-container {
+            position: fixed;
+            inset: 0;
+            z-index: 1;
+            cursor: none;
+            touch-action: none;
+        }
+
+        .hud-layer {
+            position: fixed;
+            inset: 0;
+            z-index: 10;
+            pointer-events: none;
+        }
+
+        .pointer-events-auto {
+            pointer-events: auto;
+        }
+
+        .glass-panel {
+            background: rgba(10, 15, 30, 0.72);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(99, 102, 241, 0.28);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.55);
+        }
+
+        .mono {
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .spin-dial-ring {
+            transition: stroke-dashoffset 0.08s ease-out, stroke 0.15s ease;
+        }
+
+        /* Mobile Portrait & Landscape Compact HUD */
         @media (max-width: 768px) {
-            #header-left, #radar-panel, #instructions { display: none !important; }
-            header { position: fixed; bottom: 12px; left: 12px; right: 12px; justify-content: center !important; }
-            #header-right { width: 100%; justify-content: space-between; gap: 6px !important; }
-            #header-right button, #header-right a { padding: 8px 10px !important; font-size: 11px !important; flex: 1; text-align: center; justify-content: center; }
-            footer { position: fixed; top: 12px; left: 12px; right: 12px; justify-content: center !important; }
-            #speed-badge { padding: 6px 12px !important; margin: 0 auto; width: auto !important; }
-            #speed-readout { font-size: 1.1rem !important; }
+            #brandBadge,
+            #telemetryCard,
+            #spinDialSvg,
+            #controlsHintBar,
+            #trackName {
+                display: none !important;
+            }
+            header {
+                position: fixed;
+                bottom: 8px;
+                left: 8px;
+                right: 8px;
+                padding: 0 !important;
+                justify-content: center !important;
+                z-index: 30;
+            }
+            #topButtonBar {
+                width: 100%;
+                justify-content: space-between;
+                gap: 4px !important;
+            }
+            #topButtonBar a,
+            #topButtonBar button,
+            #topButtonBar label {
+                padding: 7px 6px !important;
+                font-size: 10px !important;
+                flex: 1;
+                justify-content: center;
+                text-align: center;
+            }
+            footer {
+                position: fixed;
+                top: 8px;
+                left: 8px;
+                right: 8px;
+                padding: 0 !important;
+                justify-content: center !important;
+            }
+            #spinCard {
+                width: auto !important;
+                padding: 6px 14px !important;
+                border-radius: 9999px !important;
+            }
+            #spinCardHeader {
+                margin-bottom: 0 !important;
+                gap: 10px;
+            }
         }
     </style>
 </head>
 <body>
 
-    <!-- 3D WebGL Canvas Container -->
+    <!-- 3D Three.js Scene Container -->
     <div id="canvas-container"></div>
 
-    <!-- Live Telemetry & Control HUD -->
-    <div id="ui-layer">
-        <header class="flex justify-between items-start w-full">
-            <div id="header-left" class="glass px-4 py-2 rounded-lg text-cyan-400 font-bold tracking-widest text-sm shadow-lg shadow-cyan-900/20 pointer-auto">
-                3D AUDIO SQUASH
+    <!-- 2D Swipe Trail & Custom Cursor Overlay -->
+    <canvas id="overlay-canvas" class="fixed inset-0 z-20 pointer-events-none"></canvas>
+
+    <!-- HUD Layer -->
+    <div class="hud-layer flex flex-col justify-between p-4 md:p-6">
+        
+        <!-- Top Bar -->
+        <header class="flex flex-wrap items-center justify-between gap-3">
+            <!-- Brand & Audio Source Status -->
+            <div id="brandBadge" class="glass-panel rounded-xl px-4 py-2.5 flex items-center gap-3 pointer-events-auto">
+                <div class="w-3 h-3 rounded-full bg-cyan-400 animate-pulse shadow-[0_0_12px_#22d3ee]" id="audioStatusDot"></div>
+                <div>
+                    <div class="flex items-center gap-2">
+                        <h1 class="text-base md:text-lg font-bold tracking-wider uppercase text-white">3D Audio Squash</h1>
+                        <span class="text-[10px] mono uppercase px-2 py-0.5 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">HRTF Spatial</span>
+                    </div>
+                    <p class="text-xs text-slate-400 truncate max-w-[220px] sm:max-w-xs" id="trackName">Built-in Synth Groove (110 BPM)</p>
+                </div>
             </div>
-            <div id="header-right" class="flex gap-2 pointer-auto">
-                <a href="../index.html" class="glass px-4 py-2 rounded-lg text-xs font-bold text-amber-400 hover:bg-amber-500/20 transition uppercase flex items-center">
-                    Web Home
+
+            <!-- Action Controls -->
+            <div id="topButtonBar" class="flex flex-wrap items-center gap-2 pointer-events-auto">
+                <!-- Website Home Link -->
+                <a href="../index.html" id="siteHomeLink" class="glass-panel px-3 py-2 rounded-lg text-xs font-semibold tracking-wider uppercase text-amber-300 hover:bg-amber-500/20 border border-amber-500/40 transition flex items-center gap-1.5" title="Return to Website Home">
+                    <svg class="w-3.5 h-3.5 text-amber-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/>
+                    </svg>
+                    <span>Home</span>
                 </a>
-                <button id="menuBtn" class="glass px-4 py-2 rounded-lg text-xs font-bold text-slate-200 hover:bg-slate-700 transition uppercase">
-                    Menu
+
+                <!-- In-Game Menu Button -->
+                <button id="homeModalBtn" class="glass-panel px-3 py-2 rounded-lg text-xs font-semibold tracking-wider uppercase text-slate-200 hover:bg-slate-800/80 border border-slate-700 transition flex items-center gap-1.5">
+                    <span>Menu</span>
                 </button>
-                <button id="stopAudioBtn" class="glass px-4 py-2 rounded-lg text-xs font-bold text-red-400 hover:bg-red-500/20 transition uppercase">
-                    Stop
+
+                <!-- Import Audio File -->
+                <label class="glass-panel px-3 py-2 rounded-lg text-xs font-semibold tracking-wider uppercase text-cyan-300 hover:bg-cyan-500/20 hover:border-cyan-400 transition cursor-pointer flex items-center gap-1.5">
+                    <svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/>
+                    </svg>
+                    <span>Load Audio</span>
+                    <input type="file" id="audioFileInput" accept="audio/*" class="hidden">
+                </label>
+
+                <!-- Stop / Resume Audio Button -->
+                <button id="toggleAudioBtn" class="glass-panel px-3 py-2 rounded-lg text-xs font-semibold tracking-wider uppercase text-rose-300 hover:bg-rose-500/20 border border-rose-500/30 transition flex items-center gap-1.5">
+                    <span id="toggleAudioText">Stop Audio</span>
                 </button>
-                <button id="resetBallBtn" class="glass px-4 py-2 rounded-lg text-xs font-bold text-cyan-400 hover:bg-cyan-500/20 transition uppercase">
+
+                <!-- Serve / Reset Ball -->
+                <button id="serveBtn" class="glass-panel px-3 py-2 rounded-lg text-xs font-semibold tracking-wider uppercase text-emerald-300 hover:bg-emerald-500/20 border border-emerald-500/30 transition">
                     Reset
                 </button>
             </div>
         </header>
 
-        <footer class="flex justify-between items-end w-full">
-            <div id="radar-panel" class="glass p-4 rounded-xl text-xs text-slate-300 font-mono space-y-1 w-48 pointer-auto">
-                <div class="text-cyan-400 mb-2 font-bold uppercase tracking-wider">Spatial Radar</div>
-                <div>X (Pan): <span id="pos-x">0.0</span></div>
-                <div>Y (Elev): <span id="pos-y">0.0</span></div>
-                <div>Z (Dist): <span id="pos-z">0.0</span></div>
-            </div>
+        <!-- Bottom Telemetry & Spin Readout -->
+        <footer class="flex flex-col md:flex-row items-stretch md:items-end justify-between gap-3">
             
-            <div id="speed-badge" class="glass px-6 py-3 rounded-full text-center border-cyan-500/50 pointer-auto">
-                <div class="text-[10px] text-cyan-400 uppercase tracking-widest font-bold mb-1">Spin Factor</div>
-                <div id="speed-readout" class="text-xl font-mono text-white font-bold">1.00x FWD</div>
+            <!-- 3D Spatial Telemetry + Mini Radar (Desktop) -->
+            <div id="telemetryCard" class="glass-panel rounded-xl p-3.5 flex items-center gap-4 pointer-events-auto w-full md:w-auto">
+                <div class="relative w-16 h-20 rounded-lg bg-slate-950/90 border border-indigo-500/30 overflow-hidden shrink-0">
+                    <div class="absolute inset-x-0 top-1 text-center text-[8px] mono text-slate-500">BACK WALL</div>
+                    <div class="absolute inset-x-0 bottom-1 text-center text-[8px] mono text-cyan-400">BAT</div>
+                    <div id="radarBall" class="w-2.5 h-2.5 rounded-full bg-cyan-400 shadow-[0_0_8px_#22d3ee] absolute" style="left:50%; top:50%; transform:translate(-50%,-50%)"></div>
+                </div>
+
+                <div class="grid grid-cols-3 gap-3 text-xs flex-1">
+                    <div>
+                        <div class="text-[10px] uppercase text-slate-400">Pan (L/R)</div>
+                        <div class="mono font-semibold text-cyan-300 mt-0.5" id="panReadout">CENTER</div>
+                        <div class="w-full h-1 bg-slate-800 rounded-full mt-1 overflow-hidden">
+                            <div id="panBar" class="h-full bg-cyan-400" style="width: 50%;"></div>
+                        </div>
+                    </div>
+                    <div>
+                        <div class="text-[10px] uppercase text-slate-400">Elev (U/D)</div>
+                        <div class="mono font-semibold text-indigo-300 mt-0.5" id="elevReadout">0.0m</div>
+                        <div class="w-full h-1 bg-slate-800 rounded-full mt-1 overflow-hidden">
+                            <div id="elevBar" class="h-full bg-indigo-400" style="width: 50%;"></div>
+                        </div>
+                    </div>
+                    <div>
+                        <div class="text-[10px] uppercase text-slate-400">Room Vol</div>
+                        <div class="mono font-semibold text-emerald-300 mt-0.5" id="distReadout">100%</div>
+                        <div class="w-full h-1 bg-slate-800 rounded-full mt-1 overflow-hidden">
+                            <div id="distBar" class="h-full bg-emerald-400" style="width: 100%;"></div>
+                        </div>
+                    </div>
+                </div>
             </div>
-            
-            <div id="instructions" class="glass p-3 rounded-lg text-xs text-slate-400 max-w-xs text-right pointer-auto">
-                Move bat with mouse/touch. Impart circular spin on impact to scratch, speed up, or reverse the spatial audio!
+
+            <!-- Spin & Playback Rate Gauge -->
+            <div id="spinCard" class="glass-panel rounded-xl p-3.5 flex items-center gap-4 pointer-events-auto w-full md:w-80">
+                <div id="spinDialSvg" class="relative w-14 h-14 shrink-0 flex items-center justify-center">
+                    <svg class="w-full h-full -rotate-90" viewBox="0 0 60 60">
+                        <circle cx="30" cy="30" r="24" fill="none" stroke="rgba(51,65,85,0.6)" stroke-width="5"/>
+                        <circle id="spinArc" class="spin-dial-ring" cx="30" cy="30" r="24" fill="none" stroke="#22d3ee" stroke-width="5" stroke-dasharray="150.8" stroke-dashoffset="100" stroke-linecap="round"/>
+                    </svg>
+                    <div id="spinArrow" class="absolute text-lg font-bold text-cyan-300">↻</div>
+                </div>
+
+                <div class="flex-1">
+                    <div id="spinCardHeader" class="flex items-center justify-between mb-1">
+                        <span class="text-[10px] uppercase tracking-wider text-slate-400">Ball Spin / Audio</span>
+                        <span id="directionBadge" class="text-[10px] mono font-bold px-1.5 py-0.5 rounded bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">FORWARD ↻</span>
+                    </div>
+                    <div class="flex items-baseline justify-between">
+                        <div class="text-lg md:text-2xl font-bold mono text-white" id="rateReadout">+1.00x</div>
+                        <div class="text-xs mono text-slate-400 hidden sm:block">Hits: <span id="rallyCount" class="text-white font-semibold">0</span></div>
+                    </div>
+                </div>
             </div>
+
         </footer>
     </div>
 
-    <!-- Start / Upload Modal -->
-    <div id="modal">
-        <div class="bg-slate-900 border border-slate-700 p-8 rounded-2xl max-w-md w-full mx-4 shadow-2xl flex flex-col items-center text-center">
-            <h1 class="text-2xl font-bold text-cyan-400 mb-2 tracking-widest uppercase">3D Audio Squash</h1>
-            <p class="text-slate-400 text-sm mb-6">Upload a track. Swipe the paddle on impact to alter audio speed and reverse it through 3D space.</p>
-            
-            <label class="bg-cyan-600 hover:bg-cyan-500 text-white px-8 py-3 rounded-xl font-bold tracking-wider cursor-pointer transition w-full mb-2">
-                LOAD AUDIO TRACK
-                <input type="file" id="audioUpload" accept="audio/*" class="hidden">
-            </label>
-            <p id="trackName" class="text-xs text-cyan-300 font-mono mb-6 h-4 overflow-hidden text-ellipsis whitespace-nowrap w-full"></p>
-            
-            <button id="resumeBtn" class="bg-slate-700 hover:bg-slate-600 text-white px-8 py-3 rounded-xl font-bold tracking-wider transition w-full mb-6 hidden">
-                RESUME RALLY
-            </button>
-            
-            <a href="../index.html" class="text-xs text-amber-400/80 hover:text-amber-400 uppercase tracking-widest font-bold underline decoration-amber-500/30 underline-offset-4">
-                Back to Website Home
-            </a>
+    <!-- Start / Pause Modal -->
+    <div id="startModal" class="fixed inset-0 z-30 flex items-center justify-center bg-slate-950/85 backdrop-blur-md p-4">
+        <div class="glass-panel max-w-lg w-full rounded-2xl p-6 md:p-8 border border-cyan-500/40 shadow-2xl text-center">
+            <div class="w-12 h-12 rounded-2xl bg-cyan-500/10 border border-cyan-400/40 flex items-center justify-center mx-auto mb-3 shadow-[0_0_25px_rgba(34,211,238,0.25)]">
+                <span class="text-2xl">🎧</span>
+            </div>
+            <h2 class="text-xl md:text-2xl font-bold text-white tracking-wide">3D Audio Squash</h2>
+            <p class="text-xs md:text-sm text-slate-300 mt-2 leading-relaxed">
+                The ball is the sound source! Move the square bat with your finger or mouse.
+            </p>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-left my-5">
+                <div class="p-3 rounded-xl bg-slate-900/80 border border-cyan-500/25">
+                    <div class="text-cyan-400 font-bold text-xs uppercase tracking-wider">↻ Clockwise Spin</div>
+                    <p class="text-[11px] text-slate-300 mt-1">Swipe clockwise (right on top, down on right) on impact to <strong>speed up</strong> the audio.</p>
+                </div>
+                <div class="p-3 rounded-xl bg-slate-900/80 border border-rose-500/25">
+                    <div class="text-rose-400 font-bold text-xs uppercase tracking-wider">↺ Counter-Clockwise</div>
+                    <p class="text-[11px] text-slate-300 mt-1">Swipe counter-clockwise on impact to <strong>slow down</strong> and <strong>reverse</strong> the audio.</p>
+                </div>
+            </div>
+
+            <div class="flex flex-col sm:flex-row items-center justify-center gap-2.5">
+                <button id="startDefaultBtn" class="w-full sm:w-auto flex-1 py-3 px-5 rounded-xl bg-gradient-to-r from-cyan-500 to-indigo-600 hover:from-cyan-400 hover:to-indigo-500 text-white font-bold text-xs uppercase tracking-wider shadow-lg transition">
+                    Play Built-In Groove
+                </button>
+                <label class="w-full sm:w-auto py-3 px-5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-600 text-cyan-300 font-bold text-xs uppercase tracking-wider cursor-pointer transition text-center">
+                    Upload Audio File
+                    <input type="file" id="modalAudioInput" accept="audio/*" class="hidden">
+                </label>
+            </div>
+
+            <div class="mt-4 pt-3 border-t border-slate-800/80 flex justify-center">
+                <a href="../index.html" class="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-amber-300 hover:text-amber-200 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 px-4 py-2 rounded-lg transition">
+                    <span>◀ Back to Website Home</span>
+                </a>
+            </div>
         </div>
     </div>
 
     <script>
-        // ==========================================
-        // 1. WEB AUDIO API & DUAL BUFFER SETUP
-        // ==========================================
-        let audioCtx;
-        let fwdBuffer = null;
-        let revBuffer = null;
-        let currentSource = null;
-        let pannerNode = null;
-        
-        let isPlaying = false;
-        let playbackRate = 1.0;
-        let isForward = true;
-        let startTime = 0; 
-        let startOffset = 0; 
+        /********************************************************************
+         * 1. SPATIAL WEB AUDIO ENGINE (Forward & Reverse Buffer + HRTF)
+         ********************************************************************/
+        class SpatialBallAudioEngine {
+            constructor() {
+                this.ctx = null;
+                this.forwardBuffer = null;
+                this.reverseBuffer = null;
+                this.sourceNode = null;
+                this.panner = null;
+                this.distanceFilter = null;
+                this.masterGain = null;
+                this.convolver = null;
+                this.wetGain = null;
 
-        function initAudio() {
-            if (!audioCtx) {
-                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-                
-                // Spatial HRTF Panner
-                pannerNode = audioCtx.createPanner();
-                pannerNode.panningModel = 'HRTF';
-                pannerNode.distanceModel = 'inverse';
-                pannerNode.refDistance = 2;
-                pannerNode.maxDistance = 50;
-                pannerNode.rolloffFactor = 1.5;
-                pannerNode.connect(audioCtx.destination);
+                this.isPlaying = false;
+                this.playbackRate = 1.0; // Positive = Forward, Negative = Reverse
+                this.virtualCursor = 0;  // Seconds from start of forward buffer
+                this.lastTimestamp = 0;
+                this.currentDirection = 1; // 1 for forward, -1 for reverse
             }
-            if (audioCtx.state === 'suspended') audioCtx.resume();
-        }
 
-        async function processAudio(arrayBuffer, filename) {
-            initAudio();
-            document.getElementById('trackName').textContent = filename;
-            try {
-                fwdBuffer = await audioCtx.decodeAudioData(arrayBuffer);
-                
-                // Clone and reverse buffer for seamless backwards scratching
-                revBuffer = audioCtx.createBuffer(fwdBuffer.numberOfChannels, fwdBuffer.length, fwdBuffer.sampleRate);
-                for (let i = 0; i < fwdBuffer.numberOfChannels; i++) {
-                    let dest = revBuffer.getChannelData(i);
-                    let src = fwdBuffer.getChannelData(i);
-                    for (let j = 0; j < fwdBuffer.length; j++) {
-                        dest[j] = src[fwdBuffer.length - 1 - j];
+            async init() {
+                if (this.ctx) {
+                    if (this.ctx.state === 'suspended') await this.ctx.resume();
+                    return;
+                }
+
+                const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                this.ctx = new AudioCtx();
+
+                this.distanceFilter = this.ctx.createBiquadFilter();
+                this.distanceFilter.type = 'lowpass';
+                this.distanceFilter.frequency.value = 16000;
+
+                this.panner = this.ctx.createPanner();
+                this.panner.panningModel = 'HRTF';
+                this.panner.distanceModel = 'inverse';
+                this.panner.refDistance = 3.5;
+                this.panner.maxDistance = 40;
+                this.panner.rolloffFactor = 1.65;
+                this.panner.coneInnerAngle = 360;
+
+                this.masterGain = this.ctx.createGain();
+                this.masterGain.gain.value = 0.95;
+
+                this.convolver = this.ctx.createConvolver();
+                this.convolver.buffer = this.createCourtImpulse(1.1, 2.8);
+                this.wetGain = this.ctx.createGain();
+                this.wetGain.gain.value = 0.22;
+
+                this.distanceFilter.connect(this.panner);
+                this.panner.connect(this.masterGain);
+                this.panner.connect(this.convolver);
+                this.convolver.connect(this.wetGain);
+                this.wetGain.connect(this.masterGain);
+                this.masterGain.connect(this.ctx.destination);
+
+                const listener = this.ctx.listener;
+                if (listener.positionX) {
+                    listener.positionX.value = 0;
+                    listener.positionY.value = 0;
+                    listener.positionZ.value = 2.5;
+                    listener.forwardX.value = 0;
+                    listener.forwardY.value = 0;
+                    listener.forwardZ.value = -1;
+                    listener.upX.value = 0;
+                    listener.upY.value = 1;
+                    listener.upZ.value = 0;
+                } else {
+                    listener.setPosition(0, 0, 2.5);
+                    listener.setOrientation(0, 0, -1, 0, 1, 0);
+                }
+
+                this.forwardBuffer = this.createSynthGrooveBuffer();
+                this.reverseBuffer = this.cloneAndReverseBuffer(this.forwardBuffer);
+            }
+
+            createCourtImpulse(duration, decay) {
+                const rate = this.ctx.sampleRate;
+                const length = Math.floor(rate * duration);
+                const impulse = this.ctx.createBuffer(2, length, rate);
+                for (let ch = 0; ch < 2; ch++) {
+                    const data = impulse.getChannelData(ch);
+                    for (let i = 0; i < length; i++) {
+                        data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / length, decay);
                     }
                 }
-                
-                document.getElementById('resumeBtn').classList.remove('hidden');
-                document.getElementById('modal').classList.add('hidden');
-                
-                resetBall();
-                startAudioEngine();
-            } catch(e) {
-                document.getElementById('trackName').textContent = "❌ Error decoding audio";
+                return impulse;
+            }
+
+            createSynthGrooveBuffer() {
+                const sr = this.ctx.sampleRate;
+                const duration = 4.3636;
+                const len = Math.floor(sr * duration);
+                const buf = this.ctx.createBuffer(2, len, sr);
+                const L = buf.getChannelData(0);
+                const R = buf.getChannelData(1);
+
+                const notes = [
+                    110.00, 130.81, 146.83, 164.81, 196.00, 220.00, 261.63, 293.66,
+                    329.63, 392.00, 440.00, 392.00, 329.63, 293.66, 261.63, 196.00
+                ];
+                const stepLen = duration / 16;
+
+                for (let i = 0; i < len; i++) {
+                    const t = i / sr;
+                    const step = Math.floor(t / stepLen) % 16;
+                    const localT = t - Math.floor(t / stepLen) * stepLen;
+
+                    const freq = notes[step];
+                    const env = Math.exp(-localT * 9.5);
+                    const saw = 2 * ((t * freq) - Math.floor(0.5 + t * freq));
+                    const sub = Math.sin(2 * Math.PI * (freq * 0.5) * t);
+                    const chime = Math.sin(2 * Math.PI * (freq * 2.0) * t) * Math.exp(-localT * 18);
+
+                    const beatPos = t % (stepLen * 4);
+                    const kickPitch = 50 + 130 * Math.exp(-beatPos * 38);
+                    const kickEnv = Math.exp(-beatPos * 10);
+                    const kick = Math.sin(2 * Math.PI * kickPitch * beatPos) * kickEnv * 0.65;
+
+                    const offBeatPos = (t + stepLen * 2) % (stepLen * 4);
+                    const hat = (Math.random() * 2 - 1) * Math.exp(-offBeatPos * 45) * 0.25;
+
+                    const sig = (saw * 0.25 + sub * 0.35 + chime * 0.2) * env + kick + hat;
+                    L[i] = Math.tanh(sig * 1.2);
+                    R[i] = Math.tanh((sig + chime * 0.12) * 1.2);
+                }
+                return buf;
+            }
+
+            cloneAndReverseBuffer(audioBuffer) {
+                const channels = audioBuffer.numberOfChannels;
+                const length = audioBuffer.length;
+                const rev = this.ctx.createBuffer(channels, length, audioBuffer.sampleRate);
+                for (let ch = 0; ch < channels; ch++) {
+                    const src = audioBuffer.getChannelData(ch);
+                    const dst = rev.getChannelData(ch);
+                    for (let i = 0; i < length; i++) {
+                        dst[i] = src[length - 1 - i];
+                    }
+                }
+                return rev;
+            }
+
+            async loadCustomFile(file) {
+                await this.init();
+                const arrayBuf = await file.arrayBuffer();
+                const decoded = await this.ctx.decodeAudioData(arrayBuf);
+                this.forwardBuffer = decoded;
+                this.reverseBuffer = this.cloneAndReverseBuffer(decoded);
+                this.virtualCursor = 0;
+                if (this.isPlaying) {
+                    this.spawnLoopSource(true);
+                }
+            }
+
+            start() {
+                if (!this.ctx || !this.forwardBuffer) return;
+                this.lastTimestamp = performance.now();
+                this.isPlaying = true;
+                this.spawnLoopSource(true);
+            }
+
+            stop() {
+                if (this.sourceNode) {
+                    try { this.sourceNode.stop(); } catch (e) {}
+                    try { this.sourceNode.disconnect(); } catch (e) {}
+                    this.sourceNode = null;
+                }
+                this.isPlaying = false;
+            }
+
+            spawnLoopSource(forceRestart = false) {
+                if (!this.ctx || !this.forwardBuffer) return;
+
+                const dur = this.forwardBuffer.duration;
+                const desiredDir = this.playbackRate >= 0 ? 1 : -1;
+                const absRate = Math.max(0.06, Math.min(4.0, Math.abs(this.playbackRate)));
+
+                if (!forceRestart && this.sourceNode && desiredDir === this.currentDirection) {
+                    this.sourceNode.playbackRate.setTargetAtTime(absRate, this.ctx.currentTime, 0.02);
+                    return;
+                }
+
+                if (this.sourceNode) {
+                    try { this.sourceNode.stop(); } catch (e) {}
+                    try { this.sourceNode.disconnect(); } catch (e) {}
+                }
+
+                this.currentDirection = desiredDir;
+                const src = this.ctx.createBufferSource();
+                src.buffer = desiredDir === 1 ? this.forwardBuffer : this.reverseBuffer;
+                src.loop = true;
+                src.playbackRate.value = absRate;
+
+                let offset = ((this.virtualCursor % dur) + dur) % dur;
+                if (desiredDir === -1) {
+                    offset = dur - offset;
+                    if (offset >= dur) offset = 0;
+                }
+
+                src.connect(this.distanceFilter);
+                src.start(0, offset);
+                this.sourceNode = src;
+            }
+
+            setRate(newRate) {
+                this.playbackRate = Math.max(-3.5, Math.min(3.5, newRate));
+                if (this.isPlaying) {
+                    this.spawnLoopSource(false);
+                }
+            }
+
+            updateSpatial(x, y, z) {
+                if (!this.ctx || !this.panner) return;
+                const now = performance.now();
+                const dt = Math.min(0.1, (now - this.lastTimestamp) / 1000);
+                this.lastTimestamp = now;
+
+                if (this.forwardBuffer && this.isPlaying) {
+                    const dur = this.forwardBuffer.duration;
+                    this.virtualCursor = ((this.virtualCursor + dt * this.playbackRate) % dur + dur) % dur;
+                }
+
+                const t = this.ctx.currentTime;
+                if (this.panner.positionX) {
+                    this.panner.positionX.setTargetAtTime(x * 1.45, t, 0.015);
+                    this.panner.positionY.setTargetAtTime(y * 1.45, t, 0.015);
+                    this.panner.positionZ.setTargetAtTime(z, t, 0.015);
+                } else {
+                    this.panner.setPosition(x * 1.45, y * 1.45, z);
+                }
+
+                const normDepth = Math.min(1, Math.max(0, Math.abs(z) / 26));
+                const cutoff = 16000 * Math.pow(1 - normDepth * 0.82, 1.6) + 550;
+                this.distanceFilter.frequency.setTargetAtTime(cutoff, t, 0.03);
+                this.wetGain.gain.setTargetAtTime(0.15 + normDepth * 0.45, t, 0.03);
+            }
+
+            triggerImpactThud(intensity = 1.0, freqStart = 150) {
+                if (!this.ctx || !this.isPlaying) return;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sine';
+                const now = this.ctx.currentTime;
+                osc.frequency.setValueAtTime(freqStart, now);
+                osc.frequency.exponentialRampToValueAtTime(38, now + 0.09);
+
+                gain.gain.setValueAtTime(Math.min(0.45, 0.25 * intensity), now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.095);
+
+                osc.connect(gain);
+                gain.connect(this.masterGain);
+                osc.start(now);
+                osc.stop(now + 0.1);
             }
         }
 
-        function startAudioEngine() {
-            if (!fwdBuffer) return;
-            if (currentSource) currentSource.stop();
-            
-            playbackRate = 1.0;
-            isForward = true;
-            startOffset = 0;
-            
-            currentSource = audioCtx.createBufferSource();
-            currentSource.buffer = fwdBuffer;
-            currentSource.loop = true;
-            currentSource.playbackRate.value = playbackRate;
-            currentSource.connect(pannerNode);
-            
-            currentSource.start(0);
-            startTime = audioCtx.currentTime;
-            isPlaying = true;
-            updateSpeedUI();
-        }
+        const audioEngine = new SpatialBallAudioEngine();
 
-        function setSpinSpeed(newRate) {
-            if (!fwdBuffer || !isPlaying) return;
-            
-            let oldSign = Math.sign(playbackRate) >= 0;
-            let newSign = Math.sign(newRate) >= 0;
-            
-            // If the audio direction flips, accurately calculate the virtual playhead and swap buffers
-            if (oldSign !== newSign) {
-                let now = audioCtx.currentTime;
-                let elapsed = (now - startTime) * Math.abs(playbackRate);
-                let currentPlayhead = isForward ? (startOffset + elapsed) : (startOffset - elapsed);
-                
-                if (currentPlayhead >= fwdBuffer.duration) currentPlayhead %= fwdBuffer.duration;
-                if (currentPlayhead < 0) currentPlayhead = fwdBuffer.duration + (currentPlayhead % fwdBuffer.duration);
-                
-                startTime = now;
-                startOffset = currentPlayhead;
-                isForward = newSign;
-                
-                currentSource.stop();
-                currentSource.disconnect();
-                
-                currentSource = audioCtx.createBufferSource();
-                currentSource.buffer = isForward ? fwdBuffer : revBuffer;
-                currentSource.loop = true;
-                currentSource.connect(pannerNode);
-                
-                let playStart = isForward ? currentPlayhead : (fwdBuffer.duration - currentPlayhead);
-                currentSource.start(0, playStart);
-            }
-            
-            playbackRate = newRate;
-            currentSource.playbackRate.value = Math.abs(playbackRate);
-            updateSpeedUI();
-        }
-
-        function updateSpeedUI() {
-            document.getElementById('speed-readout').innerText = `${Math.abs(playbackRate).toFixed(2)}x ${isForward ? 'FWD' : 'REV'}`;
-        }
-
-        function stopAudioEngine() {
-            if (currentSource) {
-                currentSource.stop();
-                currentSource.disconnect();
-                currentSource = null;
-            }
-            isPlaying = false;
-        }
-
-        // ==========================================
-        // 2. THREE.JS 3D ENVIRONMENT
-        // ==========================================
+        /********************************************************************
+         * 2. THREE.JS 3D SQUASH ROOM & BALL SCENE
+         ********************************************************************/
+        const container = document.getElementById('canvas-container');
         const scene = new THREE.Scene();
-        scene.fog = new THREE.FogExp2(0x0f172a, 0.015);
+        scene.fog = new THREE.FogExp2(0x05070f, 0.022);
 
-        const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
-        camera.position.set(0, 0, 25);
+        const COURT = {
+            halfW: 5.0,
+            halfH: 3.8,
+            depth: 26.0
+        };
 
-        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-        renderer.setPixelRatio(window.devicePixelRatio);
-        document.getElementById('canvas-container').appendChild(renderer.domElement);
+        const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 100);
+        camera.position.set(0, 0, 6.8);
+        camera.lookAt(0, 0, -10);
 
-        // Court Dimensions
-        const courtWidth = 20;
-        const courtHeight = 15;
-        const courtDepth = 40;
+        const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        container.appendChild(renderer.domElement);
 
-        // Wireframe Court Box
-        const courtGeo = new THREE.BoxGeometry(courtWidth, courtHeight, courtDepth);
-        const courtEdges = new THREE.EdgesGeometry(courtGeo);
-        const courtMesh = new THREE.LineSegments(courtEdges, new THREE.LineBasicMaterial({ color: 0x0ea5e9, transparent: true, opacity: 0.25 }));
-        courtMesh.position.z = -(courtDepth / 2);
-        scene.add(courtMesh);
-
-        // Grid Floor
-        const gridHelper = new THREE.GridHelper(courtDepth, 20, 0x0ea5e9, 0x0ea5e9);
-        gridHelper.position.set(0, -(courtHeight / 2), -(courtDepth / 2));
-        gridHelper.material.opacity = 0.2;
-        gridHelper.material.transparent = true;
-        scene.add(gridHelper);
-
-        // Ball
-        const ballGeo = new THREE.SphereGeometry(0.8, 16, 16);
-        const ballMat = new THREE.MeshBasicMaterial({ color: 0x38bdf8, wireframe: true });
-        const ball = new THREE.Mesh(ballGeo, ballMat);
-        scene.add(ball);
-
-        // Paddle (The Player's Bat)
-        const paddleGeo = new THREE.PlaneGeometry(4, 4);
-        const paddleMat = new THREE.MeshBasicMaterial({ color: 0xa855f7, transparent: true, opacity: 0.4, side: THREE.DoubleSide });
-        const paddle = new THREE.Mesh(paddleGeo, paddleMat);
-        paddle.position.z = 0;
-        scene.add(paddle);
-
-        // Physics State
-        let ballVel = new THREE.Vector3(0, 0, 0);
-        const baseSpeed = 0.45;
-        
-        let pointerVelX = 0;
-        let pointerVelY = 0;
-
-        function resetBall() {
-            ball.position.set(0, 0, -(courtDepth / 2));
-            ballVel.set((Math.random() - 0.5) * 0.3, (Math.random() - 0.5) * 0.3, -baseSpeed);
-            if (isPlaying) setSpinSpeed(1.0);
-        }
-
-        // ==========================================
-        // 3. RESPONSIVE RESIZE (PORTRAIT FOV FIX)
-        // ==========================================
-        function handleResize() {
-            const width = window.innerWidth;
-            const height = window.innerHeight;
-            const aspect = width / height;
-            
+        // Responsive Portrait & Landscape Camera Fit so the ball NEVER goes off-screen
+        function resizeCourtCamera() {
+            const w = window.innerWidth;
+            const h = window.innerHeight;
+            const aspect = w / h;
             camera.aspect = aspect;
-            
-            // FIX: Prevent left/right court walls from clipping off screen in portrait mode
-            const baseFov = 60;
-            if (aspect < 1.0) {
-                // Mathematically calculate the required vertical FOV to maintain the horizontal span
-                const baseFovRad = THREE.MathUtils.degToRad(baseFov);
-                const newFovRad = 2 * Math.atan(Math.tan(baseFovRad / 2) / aspect);
-                camera.fov = THREE.MathUtils.radToDeg(newFovRad);
-            } else {
-                camera.fov = baseFov;
-            }
-            
-            camera.updateProjectionMatrix();
-            renderer.setSize(width, height);
-        }
-        window.addEventListener('resize', handleResize);
-        handleResize();
 
-        // ==========================================
-        // 4. INPUT (TOUCH & MOUSE) & PHYSICS LOOP
-        // ==========================================
-        const canvasEl = renderer.domElement;
-        
-        canvasEl.addEventListener('pointerdown', (e) => e.target.setPointerCapture(e.pointerId));
-        canvasEl.addEventListener('pointerup', (e) => e.target.releasePointerCapture(e.pointerId));
-        canvasEl.addEventListener('pointermove', (e) => {
-            // Map screen coords to 3D world space at Z=0
-            let ndcX = (e.clientX / window.innerWidth) * 2 - 1;
-            let ndcY = -(e.clientY / window.innerHeight) * 2 + 1;
-            
-            // Scale based on camera bounds at z=0
-            // courtWidth/2 = 10, courtHeight/2 = 7.5
-            let targetX = ndcX * 10 * Math.max(1, window.innerWidth/window.innerHeight); 
-            let targetY = ndcY * 7.5;
-            
-            // Constrain paddle to court bounds
-            targetX = Math.max(-10, Math.min(10, targetX));
-            targetY = Math.max(-7.5, Math.min(7.5, targetY));
-            
-            pointerVelX = targetX - paddle.position.x;
-            pointerVelY = targetY - paddle.position.y;
-            
-            paddle.position.x = targetX;
-            paddle.position.y = targetY;
+            if (aspect < 1.15) {
+                const camZ = 7.4;
+                camera.position.set(0, 0, camZ);
+                const requiredHalfW = COURT.halfW * 1.12;
+                const hFovRad = 2 * Math.atan(requiredHalfW / camZ);
+                const vFovRad = 2 * Math.atan(Math.tan(hFovRad / 2) / aspect);
+                camera.fov = Math.min(115, Math.max(60, THREE.MathUtils.radToDeg(vFovRad)));
+            } else {
+                camera.position.set(0, 0, 6.8);
+                camera.fov = 60;
+            }
+
+            camera.updateProjectionMatrix();
+            renderer.setSize(w, h);
+        }
+        resizeCourtCamera();
+
+        // Lights
+        const ambientLight = new THREE.AmbientLight(0x6366f1, 0.65);
+        scene.add(ambientLight);
+
+        const ballLight = new THREE.PointLight(0x22d3ee, 2.6, 22);
+        scene.add(ballLight);
+
+        // Build Court Room Wireframes & Depth Markers
+        const roomGroup = new THREE.Group();
+        scene.add(roomGroup);
+
+        for (let z = 0; z >= -COURT.depth; z -= 3.25) {
+            const isFrontOrBack = (z === 0 || Math.abs(z + COURT.depth) < 0.1);
+            const pts = [
+                new THREE.Vector3(-COURT.halfW, -COURT.halfH, z),
+                new THREE.Vector3( COURT.halfW, -COURT.halfH, z),
+                new THREE.Vector3( COURT.halfW,  COURT.halfH, z),
+                new THREE.Vector3(-COURT.halfW,  COURT.halfH, z),
+                new THREE.Vector3(-COURT.halfW, -COURT.halfH, z)
+            ];
+            const geo = new THREE.BufferGeometry().setFromPoints(pts);
+            const mat = new THREE.LineBasicMaterial({
+                color: isFrontOrBack ? 0x38bdf8 : 0x312e81,
+                transparent: true,
+                opacity: isFrontOrBack ? 0.65 : 0.45
+            });
+            roomGroup.add(new THREE.Line(geo, mat));
+        }
+
+        const corners = [
+            [-COURT.halfW, -COURT.halfH],
+            [ COURT.halfW, -COURT.halfH],
+            [ COURT.halfW,  COURT.halfH],
+            [-COURT.halfW,  COURT.halfH]
+        ];
+        corners.forEach(([cx, cy]) => {
+            const geo = new THREE.BufferGeometry().setFromPoints([
+                new THREE.Vector3(cx, cy, 0),
+                new THREE.Vector3(cx, cy, -COURT.depth)
+            ]);
+            roomGroup.add(new THREE.Line(geo, new THREE.LineBasicMaterial({ color: 0x4f46e5, transparent: true, opacity: 0.6 })));
         });
 
-        function animate() {
-            requestAnimationFrame(animate);
-            
-            if (isPlaying && fwdBuffer) {
-                ball.position.add(ballVel);
-                
-                // --- Side / Ceiling / Floor Bounces ---
-                if (ball.position.x > (courtWidth/2 - 0.8) || ball.position.x < -(courtWidth/2 - 0.8)) ballVel.x *= -1;
-                if (ball.position.y > (courtHeight/2 - 0.8) || ball.position.y < -(courtHeight/2 - 0.8)) ballVel.y *= -1;
-                
-                // --- Back Wall Bounce ---
-                if (ball.position.z < -courtDepth + 0.8) ballVel.z = Math.abs(ballVel.z);
-                
-                // --- Front Wall / Paddle Interaction ---
-                if (ball.position.z > -0.8 && ballVel.z > 0) {
-                    
-                    // Check intersection with paddle (4x4 plane)
-                    if (Math.abs(ball.position.x - paddle.position.x) < 2.5 &&
-                        Math.abs(ball.position.y - paddle.position.y) < 2.5) {
-                        
-                        // Hit! Bounce back
-                        ballVel.z = -Math.abs(ballVel.z);
-                        ballVel.x += pointerVelX * 0.1;
-                        ballVel.y += pointerVelY * 0.1;
-                        
-                        // Calculate Spin via angular cross product heuristic
-                        let cx = paddle.position.x;
-                        let cy = paddle.position.y;
-                        let spinForce = (cx * pointerVelY - cy * pointerVelX) * 0.08;
-                        
-                        let newRate = playbackRate + spinForce;
-                        newRate = Math.max(-2.5, Math.min(2.5, newRate)); // Clamp between -2.5x and 2.5x
-                        
-                        setSpinSpeed(newRate);
-                        
-                        // Visual Hit Flash
-                        paddle.material.opacity = 0.8;
-                        setTimeout(() => paddle.material.opacity = 0.4, 100);
-                        ball.material.color.setHex(0xffffff);
-                        setTimeout(() => ball.material.color.setHex(0x38bdf8), 100);
-                        
-                    } else if (ball.position.z > 2) {
-                        // Missed the bat, reset the rally
-                        resetBall();
-                    }
-                }
-                
-                // Friction: Gradually drag playback rate back towards 1.0x over time
-                if (Math.abs(playbackRate - 1.0) > 0.01) {
-                    let decay = (playbackRate > 1.0) ? -0.003 : 0.003;
-                    setSpinSpeed(playbackRate + decay);
-                }
-                
-                // Update 3D Audio Source Position
-                if (pannerNode) {
-                    pannerNode.positionX.value = ball.position.x;
-                    pannerNode.positionY.value = ball.position.y;
-                    pannerNode.positionZ.value = ball.position.z;
-                }
-                
-                // Update UI Coordinates
-                document.getElementById('pos-x').innerText = ball.position.x.toFixed(1);
-                document.getElementById('pos-y').innerText = ball.position.y.toFixed(1);
-                document.getElementById('pos-z').innerText = ball.position.z.toFixed(1);
+        // Reactive Wall Panels
+        const wallFlashes = {};
+        function createWallPlane(name, w, h, pos, rot) {
+            const geo = new THREE.PlaneGeometry(w, h);
+            const mat = new THREE.MeshBasicMaterial({
+                color: 0x22d3ee,
+                transparent: true,
+                opacity: 0.03,
+                side: THREE.DoubleSide
+            });
+            const mesh = new THREE.Mesh(geo, mat);
+            mesh.position.copy(pos);
+            mesh.rotation.set(rot.x, rot.y, rot.z);
+            scene.add(mesh);
+            wallFlashes[name] = mat;
+        }
+
+        createWallPlane('back', COURT.halfW * 2, COURT.halfH * 2, new THREE.Vector3(0, 0, -COURT.depth), new THREE.Euler(0, 0, 0));
+        createWallPlane('left', COURT.depth, COURT.halfH * 2, new THREE.Vector3(-COURT.halfW, 0, -COURT.depth / 2), new THREE.Euler(0, Math.PI / 2, 0));
+        createWallPlane('right', COURT.depth, COURT.halfH * 2, new THREE.Vector3(COURT.halfW, 0, -COURT.depth / 2), new THREE.Euler(0, Math.PI / 2, 0));
+        createWallPlane('top', COURT.halfW * 2, COURT.depth, new THREE.Vector3(0, COURT.halfH, -COURT.depth / 2), new THREE.Euler(Math.PI / 2, 0, 0));
+        createWallPlane('bottom', COURT.halfW * 2, COURT.depth, new THREE.Vector3(0, -COURT.halfH, -COURT.depth / 2), new THREE.Euler(Math.PI / 2, 0, 0));
+
+        // Dynamic Ball Depth Tracking Frame
+        const trackerPts = [
+            new THREE.Vector3(-COURT.halfW, -COURT.halfH, 0),
+            new THREE.Vector3( COURT.halfW, -COURT.halfH, 0),
+            new THREE.Vector3( COURT.halfW,  COURT.halfH, 0),
+            new THREE.Vector3(-COURT.halfW,  COURT.halfH, 0),
+            new THREE.Vector3(-COURT.halfW, -COURT.halfH, 0)
+        ];
+        const depthTrackerFrame = new THREE.Line(
+            new THREE.BufferGeometry().setFromPoints(trackerPts),
+            new THREE.LineBasicMaterial({ color: 0x22d3ee, transparent: true, opacity: 0.35 })
+        );
+        scene.add(depthTrackerFrame);
+
+        // Floor Shadow Dot
+        const shadowMesh = new THREE.Mesh(
+            new THREE.RingGeometry(0.15, 0.52, 24),
+            new THREE.MeshBasicMaterial({ color: 0x22d3ee, transparent: true, opacity: 0.45, side: THREE.DoubleSide })
+        );
+        shadowMesh.rotation.x = Math.PI / 2;
+        scene.add(shadowMesh);
+
+        // 3D Sound Ball
+        const BALL_RADIUS = 0.52;
+        const ballGroup = new THREE.Group();
+        scene.add(ballGroup);
+
+        const ballCore = new THREE.Mesh(
+            new THREE.SphereGeometry(BALL_RADIUS * 0.72, 24, 24),
+            new THREE.MeshStandardMaterial({
+                color: 0xffffff,
+                emissive: 0x06b6d4,
+                emissiveIntensity: 1.4,
+                roughness: 0.2
+            })
+        );
+        ballGroup.add(ballCore);
+
+        const ballCage = new THREE.Mesh(
+            new THREE.IcosahedronGeometry(BALL_RADIUS, 1),
+            new THREE.MeshBasicMaterial({
+                color: 0x38bdf8,
+                wireframe: true,
+                transparent: true,
+                opacity: 0.85
+            })
+        );
+        ballGroup.add(ballCage);
+
+        // Ball Trail
+        const TRAIL_LENGTH = 26;
+        const trailPositions = new Float32Array(TRAIL_LENGTH * 3);
+        const trailGeo = new THREE.BufferGeometry();
+        trailGeo.setAttribute('position', new THREE.BufferAttribute(trailPositions, 3));
+        const trailLine = new THREE.Line(
+            trailGeo,
+            new THREE.LineBasicMaterial({ color: 0x22d3ee, transparent: true, opacity: 0.45 })
+        );
+        scene.add(trailLine);
+
+        // Square Bat at Front Wall (z = 0)
+        const BAT_SIZE = 2.55;
+        const batGroup = new THREE.Group();
+        scene.add(batGroup);
+
+        const batGlass = new THREE.Mesh(
+            new THREE.PlaneGeometry(BAT_SIZE, BAT_SIZE),
+            new THREE.MeshBasicMaterial({
+                color: 0x22d3ee,
+                transparent: true,
+                opacity: 0.14,
+                side: THREE.DoubleSide
+            })
+        );
+        batGroup.add(batGlass);
+
+        const batBorder = new THREE.LineSegments(
+            new THREE.EdgesGeometry(new THREE.PlaneGeometry(BAT_SIZE, BAT_SIZE)),
+            new THREE.LineBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.95 })
+        );
+        batGroup.add(batBorder);
+
+        const reticleRing = new THREE.Mesh(
+            new THREE.RingGeometry(0.28, 0.34, 4),
+            new THREE.MeshBasicMaterial({ color: 0xe0f2fe, transparent: true, opacity: 0.8, side: THREE.DoubleSide })
+        );
+        reticleRing.rotation.z = Math.PI / 4;
+        batGroup.add(reticleRing);
+
+        /********************************************************************
+         * 3. BALL PHYSICS, SPIN GESTURE DETECTION & GAME LOOP
+         ********************************************************************/
+        const BASE_SPEED_Z = 9.5;
+        const ballState = {
+            pos: new THREE.Vector3(0, 0, -8),
+            vel: new THREE.Vector3(2.2, 1.5, -BASE_SPEED_Z),
+            spin: 0.0,
+            rally: 0
+        };
+
+        const batState = {
+            targetX: 0,
+            targetY: 0,
+            x: 0,
+            y: 0,
+            vx: 0,
+            vy: 0
+        };
+
+        const pointerHistory = [];
+        const overlayCanvas = document.getElementById('overlay-canvas');
+        const ctx2d = overlayCanvas.getContext('2d');
+
+        function resizeOverlay() {
+            overlayCanvas.width = window.innerWidth;
+            overlayCanvas.height = window.innerHeight;
+        }
+        resizeOverlay();
+
+        window.addEventListener('resize', () => {
+            resizeCourtCamera();
+            resizeOverlay();
+        });
+
+        function updatePointerLocation(clientX, clientY) {
+            const nx = (clientX / window.innerWidth) * 2 - 1;
+            const ny = -(clientY / window.innerHeight) * 2 + 1;
+
+            batState.targetX = Math.max(-COURT.halfW + BAT_SIZE * 0.45, Math.min(COURT.halfW - BAT_SIZE * 0.45, nx * COURT.halfW));
+            batState.targetY = Math.max(-COURT.halfH + BAT_SIZE * 0.45, Math.min(COURT.halfH - BAT_SIZE * 0.45, ny * COURT.halfH));
+
+            const now = performance.now();
+            pointerHistory.push({ x: clientX, y: clientY, wx: batState.targetX, wy: batState.targetY, t: now });
+            while (pointerHistory.length > 0 && now - pointerHistory[0].t > 240) {
+                pointerHistory.shift();
             }
-            
+        }
+
+        window.addEventListener('mousemove', (e) => updatePointerLocation(e.clientX, e.clientY));
+        window.addEventListener('touchstart', (e) => {
+            if (e.target.closest('button, a, label, input')) return;
+            if (e.touches.length > 0) {
+                e.preventDefault();
+                updatePointerLocation(e.touches[0].clientX, e.touches[0].clientY);
+            }
+        }, { passive: false });
+
+        window.addEventListener('touchmove', (e) => {
+            if (e.target.closest('button, a, label, input')) return;
+            if (e.touches.length > 0) {
+                e.preventDefault();
+                updatePointerLocation(e.touches[0].clientX, e.touches[0].clientY);
+            }
+        }, { passive: false });
+
+        function computeGestureSpin(impactX, impactY) {
+            if (pointerHistory.length < 3) return 0;
+
+            let cx = 0, cy = 0;
+            for (const p of pointerHistory) {
+                cx += p.wx;
+                cy += p.wy;
+            }
+            cx /= pointerHistory.length;
+            cy /= pointerHistory.length;
+
+            let signedArea = 0;
+            for (let i = 1; i < pointerHistory.length; i++) {
+                const p0 = pointerHistory[i - 1];
+                const p1 = pointerHistory[i];
+                const r0x = p0.wx - cx;
+                const r0y = p0.wy - cy;
+                const dx = p1.wx - p0.wx;
+                const dy = p1.wy - p0.wy;
+                signedArea += (r0x * dy - r0y * dx);
+            }
+            const curlTorque = -signedArea * 2.2;
+
+            const rx = impactX - batState.x;
+            const ry = impactY - batState.y;
+            const contactCross = -(rx * batState.vy - ry * batState.vx) * 0.045;
+            const horizontalSlice = batState.vx * 0.038;
+
+            return Math.max(-1.35, Math.min(1.35, curlTorque + contactCross + horizontalSlice));
+        }
+
+        function resetAndServeBall() {
+            ballState.pos.set(0, 0, -6);
+            const angle = (Math.random() - 0.5) * 0.8;
+            ballState.vel.set(Math.sin(angle) * 3.2, (Math.random() - 0.5) * 2.4, -BASE_SPEED_Z);
+            for (let i = 0; i < TRAIL_LENGTH; i++) {
+                trailPositions[i * 3] = 0;
+                trailPositions[i * 3 + 1] = 0;
+                trailPositions[i * 3 + 2] = -6;
+            }
+        }
+
+        // HUD DOM Elements
+        const panReadout = document.getElementById('panReadout');
+        const panBar = document.getElementById('panBar');
+        const elevReadout = document.getElementById('elevReadout');
+        const elevBar = document.getElementById('elevBar');
+        const distReadout = document.getElementById('distReadout');
+        const distBar = document.getElementById('distBar');
+        const radarBall = document.getElementById('radarBall');
+        const rateReadout = document.getElementById('rateReadout');
+        const directionBadge = document.getElementById('directionBadge');
+        const spinArc = document.getElementById('spinArc');
+        const spinArrow = document.getElementById('spinArrow');
+        const rallyCountEl = document.getElementById('rallyCount');
+        const audioStatusDot = document.getElementById('audioStatusDot');
+        const toggleAudioText = document.getElementById('toggleAudioText');
+
+        function updateAudioUIState() {
+            if (audioEngine.isPlaying) {
+                toggleAudioText.textContent = 'Stop Audio';
+                audioStatusDot.className = 'w-3 h-3 rounded-full bg-cyan-400 animate-pulse shadow-[0_0_12px_#22d3ee]';
+            } else {
+                toggleAudioText.textContent = 'Start Audio';
+                audioStatusDot.className = 'w-3 h-3 rounded-full bg-rose-500 shadow-[0_0_12px_#f43f5e]';
+            }
+        }
+
+        function updateHUD() {
+            const xNorm = (ballState.pos.x / COURT.halfW);
+            const yNorm = (ballState.pos.y / COURT.halfH);
+            const zNorm = Math.min(1, Math.max(0, Math.abs(ballState.pos.z) / COURT.depth));
+
+            if (Math.abs(xNorm) < 0.08) panReadout.textContent = 'CENTER';
+            else panReadout.textContent = `${xNorm < 0 ? 'L' : 'R'} ${Math.round(Math.abs(xNorm) * 100)}%`;
+            panBar.style.width = `${50 + xNorm * 50}%`;
+
+            elevReadout.textContent = `${ballState.pos.y >= 0 ? '+' : ''}${ballState.pos.y.toFixed(1)}m`;
+            elevBar.style.width = `${50 + yNorm * 50}%`;
+
+            const gainPct = Math.round((1 - zNorm * 0.78) * 100);
+            distReadout.textContent = `${gainPct}%`;
+            distBar.style.width = `${gainPct}%`;
+
+            radarBall.style.left = `${50 + xNorm * 42}%`;
+            radarBall.style.top = `${12 + (1 - zNorm) * 76}%`;
+
+            const rate = audioEngine.playbackRate;
+            const signStr = rate >= 0 ? '+' : '';
+            rateReadout.textContent = `${signStr}${rate.toFixed(2)}x`;
+
+            const circumference = 150.8;
+            const normSpin = Math.min(1, Math.abs(rate) / 3.0);
+            spinArc.style.strokeDashoffset = `${circumference * (1 - normSpin)}`;
+
+            if (rate >= 0) {
+                directionBadge.textContent = 'FORWARD ↻';
+                directionBadge.className = 'text-[10px] mono font-bold px-1.5 py-0.5 rounded bg-cyan-500/20 text-cyan-300 border border-cyan-500/30';
+                spinArc.setAttribute('stroke', '#22d3ee');
+                spinArrow.textContent = '↻';
+                spinArrow.className = 'absolute text-lg font-bold text-cyan-300';
+                ballCore.material.emissive.setHex(0x06b6d4);
+                ballCage.material.color.setHex(0x38bdf8);
+                ballLight.color.setHex(0x22d3ee);
+            } else {
+                directionBadge.textContent = 'REVERSE ↺';
+                directionBadge.className = 'text-[10px] mono font-bold px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300 border border-rose-500/30';
+                spinArc.setAttribute('stroke', '#f43f5e');
+                spinArrow.textContent = '↺';
+                spinArrow.className = 'absolute text-lg font-bold text-rose-400';
+                ballCore.material.emissive.setHex(0xf43f5e);
+                ballCage.material.color.setHex(0xfb7185);
+                ballLight.color.setHex(0xf43f5e);
+            }
+        }
+
+        let lastFrameTime = performance.now();
+
+        function animate(now) {
+            requestAnimationFrame(animate);
+
+            const dt = Math.min(0.05, (now - lastFrameTime) / 1000);
+            lastFrameTime = now;
+
+            // Smooth Bat Movement
+            const prevBatX = batState.x;
+            const prevBatY = batState.y;
+            batState.x += (batState.targetX - batState.x) * Math.min(1, dt * 22);
+            batState.y += (batState.targetY - batState.y) * Math.min(1, dt * 22);
+            batState.vx = (batState.x - prevBatX) / Math.max(0.001, dt);
+            batState.vy = (batState.y - prevBatY) / Math.max(0.001, dt);
+
+            batGroup.position.set(batState.x, batState.y, 0);
+            batGroup.rotation.y = THREE.MathUtils.clamp(-batState.vx * 0.012, -0.35, 0.35);
+            batGroup.rotation.x = THREE.MathUtils.clamp(batState.vy * 0.012, -0.35, 0.35);
+
+            // Ball Physics & Magnus Spin Curve
+            ballState.vel.x += ballState.spin * 1.15 * dt;
+            ballState.pos.addScaledVector(ballState.vel, dt);
+
+            // Side Wall Bounces
+            if (ballState.pos.x + BALL_RADIUS > COURT.halfW) {
+                ballState.pos.x = COURT.halfW - BALL_RADIUS;
+                ballState.vel.x *= -1;
+                wallFlashes.right.opacity = 0.28;
+                audioEngine.triggerImpactThud(0.55, 190);
+            } else if (ballState.pos.x - BALL_RADIUS < -COURT.halfW) {
+                ballState.pos.x = -COURT.halfW + BALL_RADIUS;
+                ballState.vel.x *= -1;
+                wallFlashes.left.opacity = 0.28;
+                audioEngine.triggerImpactThud(0.55, 190);
+            }
+
+            // Ceiling / Floor Bounces
+            if (ballState.pos.y + BALL_RADIUS > COURT.halfH) {
+                ballState.pos.y = COURT.halfH - BALL_RADIUS;
+                ballState.vel.y *= -1;
+                wallFlashes.top.opacity = 0.28;
+                audioEngine.triggerImpactThud(0.5, 220);
+            } else if (ballState.pos.y - BALL_RADIUS < -COURT.halfH) {
+                ballState.pos.y = -COURT.halfH + BALL_RADIUS;
+                ballState.vel.y *= -1;
+                wallFlashes.bottom.opacity = 0.28;
+                audioEngine.triggerImpactThud(0.5, 140);
+            }
+
+            // Back Wall Bounce
+            if (ballState.pos.z - BALL_RADIUS < -COURT.depth) {
+                ballState.pos.z = -COURT.depth + BALL_RADIUS;
+                ballState.vel.z = Math.abs(ballState.vel.z);
+                wallFlashes.back.opacity = 0.38;
+                audioEngine.triggerImpactThud(0.4, 120);
+            }
+
+            // Front Wall / Bat Impact Check
+            if (ballState.pos.z + BALL_RADIUS >= 0 && ballState.vel.z > 0) {
+                const halfBat = BAT_SIZE * 0.5 + BALL_RADIUS * 0.65;
+                const dx = ballState.pos.x - batState.x;
+                const dy = ballState.pos.y - batState.y;
+
+                if (Math.abs(dx) <= halfBat && Math.abs(dy) <= halfBat) {
+                    ballState.pos.z = -BALL_RADIUS;
+                    const deltaSpin = computeGestureSpin(ballState.pos.x, ballState.pos.y);
+                    let nextRate = audioEngine.playbackRate + deltaSpin;
+
+                    if (Math.abs(nextRate) < 0.14) {
+                        nextRate = deltaSpin < 0 ? -0.22 : 0.22;
+                    }
+
+                    audioEngine.setRate(nextRate);
+                    ballState.spin = nextRate - 1.0;
+
+                    const speedBoost = Math.min(1.65, 1 + Math.abs(ballState.spin) * 0.2);
+                    ballState.vel.z = -BASE_SPEED_Z * speedBoost;
+                    ballState.vel.x = THREE.MathUtils.clamp(ballState.vel.x + dx * 2.4 + batState.vx * 0.18, -8.5, 8.5);
+                    ballState.vel.y = THREE.MathUtils.clamp(ballState.vel.y + dy * 2.4 + batState.vy * 0.18, -6.5, 6.5);
+
+                    ballState.rally++;
+                    rallyCountEl.textContent = ballState.rally;
+
+                    batGlass.material.opacity = 0.55;
+                    batGlass.material.color.setHex(nextRate >= 0 ? 0x22d3ee : 0xf43f5e);
+                    audioEngine.triggerImpactThud(1.1, nextRate >= 0 ? 240 : 110);
+                } else if (ballState.pos.z > 3.2) {
+                    ballState.pos.z = -BALL_RADIUS;
+                    ballState.vel.z = -BASE_SPEED_Z;
+                    ballState.rally = 0;
+                    rallyCountEl.textContent = '0';
+                    audioEngine.triggerImpactThud(0.7, 75);
+                }
+            }
+
+            // Decay Wall Flashes
+            Object.values(wallFlashes).forEach(mat => {
+                if (mat.opacity > 0.03) mat.opacity += (0.03 - mat.opacity) * dt * 8;
+            });
+            if (batGlass.material.opacity > 0.14) {
+                batGlass.material.opacity += (0.14 - batGlass.material.opacity) * dt * 7;
+            }
+
+            // Update 3D Ball & Visuals
+            ballGroup.position.copy(ballState.pos);
+            ballLight.position.copy(ballState.pos);
+            ballCage.rotation.z -= audioEngine.playbackRate * 3.8 * dt;
+            ballCage.rotation.x += audioEngine.playbackRate * 1.9 * dt;
+            depthTrackerFrame.position.z = ballState.pos.z;
+
+            shadowMesh.position.set(ballState.pos.x, -COURT.halfH + 0.02, ballState.pos.z);
+            const heightScale = 1 - ((ballState.pos.y + COURT.halfH) / (COURT.halfH * 2)) * 0.5;
+            shadowMesh.scale.setScalar(Math.max(0.3, heightScale));
+
+            for (let i = TRAIL_LENGTH - 1; i > 0; i--) {
+                trailPositions[i * 3] = trailPositions[(i - 1) * 3];
+                trailPositions[i * 3 + 1] = trailPositions[(i - 1) * 3 + 1];
+                trailPositions[i * 3 + 2] = trailPositions[(i - 1) * 3 + 2];
+            }
+            trailPositions[0] = ballState.pos.x;
+            trailPositions[1] = ballState.pos.y;
+            trailPositions[2] = ballState.pos.z;
+            trailGeo.attributes.position.needsUpdate = true;
+
+            // Update 3D Spatial Audio & HUD
+            audioEngine.updateSpatial(ballState.pos.x, ballState.pos.y, ballState.pos.z);
+            updateHUD();
+
+            // Draw 2D Swipe Trail
+            ctx2d.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+            if (pointerHistory.length > 1) {
+                ctx2d.beginPath();
+                for (let i = 0; i < pointerHistory.length; i++) {
+                    const pt = pointerHistory[i];
+                    if (i === 0) ctx2d.moveTo(pt.x, pt.y);
+                    else ctx2d.lineTo(pt.x, pt.y);
+                }
+                ctx2d.strokeStyle = audioEngine.playbackRate >= 0 ? 'rgba(34, 211, 238, 0.55)' : 'rgba(244, 63, 94, 0.55)';
+                ctx2d.lineWidth = 3;
+                ctx2d.lineCap = 'round';
+                ctx2d.stroke();
+            }
+
             renderer.render(scene, camera);
         }
-        animate();
 
-        // ==========================================
-        // 5. DOM EVENT LISTENERS
-        // ==========================================
-        document.getElementById('audioUpload').addEventListener('change', (e) => {
-            const file = e.target.files[0];
+        requestAnimationFrame(animate);
+
+        /********************************************************************
+         * 4. UI CONTROLS & FILE UPLOAD LISTENERS
+         ********************************************************************/
+        const startModal = document.getElementById('startModal');
+        const trackNameEl = document.getElementById('trackName');
+
+        document.getElementById('startDefaultBtn').addEventListener('click', async () => {
+            await audioEngine.init();
+            audioEngine.start();
+            updateAudioUIState();
+            startModal.classList.add('hidden');
+            resetAndServeBall();
+        });
+
+        async function handleFileSelect(file) {
             if (!file) return;
-            const reader = new FileReader();
-            reader.onload = (ev) => processAudio(ev.target.result, file.name);
-            reader.readAsArrayBuffer(file);
+            trackNameEl.textContent = `Loading: ${file.name}...`;
+            try {
+                await audioEngine.loadCustomFile(file);
+                audioEngine.start();
+                updateAudioUIState();
+                trackNameEl.textContent = file.name;
+                startModal.classList.add('hidden');
+                resetAndServeBall();
+            } catch (err) {
+                trackNameEl.textContent = 'Unsupported audio format — using Synth Groove';
+                await audioEngine.init();
+                audioEngine.start();
+                updateAudioUIState();
+                startModal.classList.add('hidden');
+            }
+        }
+
+        document.getElementById('audioFileInput').addEventListener('change', (e) => {
+            if (e.target.files.length > 0) handleFileSelect(e.target.files[0]);
         });
 
-        document.getElementById('menuBtn').addEventListener('click', () => {
-            document.getElementById('modal').classList.remove('hidden');
+        document.getElementById('modalAudioInput').addEventListener('change', (e) => {
+            if (e.target.files.length > 0) handleFileSelect(e.target.files[0]);
         });
 
-        document.getElementById('resumeBtn').addEventListener('click', () => {
-            initAudio();
-            document.getElementById('modal').classList.add('hidden');
+        document.getElementById('serveBtn').addEventListener('click', () => {
+            audioEngine.setRate(1.0);
+            ballState.spin = 0;
+            resetAndServeBall();
         });
 
-        document.getElementById('stopAudioBtn').addEventListener('click', stopAudioEngine);
-        document.getElementById('resetBallBtn').addEventListener('click', resetBall);
+        document.getElementById('toggleAudioBtn').addEventListener('click', async () => {
+            await audioEngine.init();
+            if (audioEngine.isPlaying) {
+                audioEngine.stop();
+            } else {
+                audioEngine.start();
+            }
+            updateAudioUIState();
+        });
 
+        document.getElementById('homeModalBtn').addEventListener('click', () => {
+            audioEngine.stop();
+            updateAudioUIState();
+            startModal.classList.remove('hidden');
+        });
+
+        document.getElementById('siteHomeLink').addEventListener('click', () => {
+            audioEngine.stop();
+        });
     </script>
 </body>
 </html>
