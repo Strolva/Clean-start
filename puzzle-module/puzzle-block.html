@@ -2,38 +2,133 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Audio Jigsaw Module</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Musical Audio Slide Symphony</title>
     <style>
+        :root {
+            --bg-color: #0f172a;
+            --accent-cyan: #38bdf8;
+            --accent-purple: #a855f7;
+            --panel-bg: #1e293b;
+        }
+
         body { 
-            background: #0f172a; color: #38bdf8; font-family: sans-serif; 
-            display: flex; flex-direction: column; align-items: center; justify-content: flex-start; 
-            min-height: 100vh; margin: 0; padding: 20px 10px; overflow-x: hidden;
-            -webkit-user-select: none; user-select: none;
+            background: var(--bg-color); 
+            color: var(--accent-cyan); 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            display: flex; 
+            flex-direction: column; 
+            align-items: center; 
+            justify-content: flex-start; 
+            min-height: 100vh; 
+            margin: 0; 
+            padding: 20px 10px 40px; 
+            overflow-x: hidden;
+            -webkit-user-select: none; 
+            user-select: none;
         }
 
         #top-bar {
-            width: 100%; max-width: 400px; display: flex; justify-content: space-between; 
-            align-items: center; margin-bottom: 20px;
+            width: 100%; 
+            max-width: 440px; 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            margin-bottom: 12px;
         }
-        #homeBtn { background: #334155; color: #fff; padding: 10px 15px; font-size: 0.9rem; border: none; border-radius: 8px; font-weight: bold; cursor: pointer;}
-        
-        #grid-controls { display: flex; align-items: center; gap: 10px; background: #1e293b; padding: 5px; border-radius: 8px;}
-        .stepper-btn { background: #334155; color: white; border: none; border-radius: 6px; padding: 8px 12px; font-size: 1rem; cursor: pointer; touch-action: manipulation; }
-        .stepper-btn:active { background: #475569; }
-        #grid-size-label { font-weight: bold; width: 40px; text-align: center; color: #fff; }
+        #homeBtn { 
+            background: #334155; 
+            color: #fff; 
+            padding: 9px 14px; 
+            font-size: 0.9rem; 
+            border: none; 
+            border-radius: 8px; 
+            font-weight: bold; 
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        #homeBtn:hover { background: #475569; }
 
-        #controls { margin-bottom: 20px; display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; width: 100%; max-width: 400px;}
-        .btn { 
-            padding: 12px 20px; border-radius: 8px; border: none; 
-            font-weight: bold; cursor: pointer; transition: 0.2s; 
-            display: flex; align-items: center; justify-content: center;
+        /* Top Mode Selector */
+        .mode-selector {
+            display: flex;
+            gap: 6px;
+            background: #1e293b;
+            padding: 5px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            width: 100%;
+            max-width: 440px;
+            box-sizing: border-box;
+            justify-content: center;
         }
-        
-        .btn-upload { background: #38bdf8; color: #0f172a; cursor: pointer; }
+        .mode-btn {
+            flex: 1;
+            background: transparent;
+            color: #94a3b8;
+            border: none;
+            padding: 8px 6px;
+            font-size: 0.8rem;
+            font-weight: bold;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-align: center;
+        }
+        .mode-btn:hover { color: #fff; }
+        .mode-btn.active {
+            background: var(--accent-cyan);
+            color: #0f172a;
+            box-shadow: 0 2px 6px rgba(56, 189, 248, 0.35);
+        }
+
+        #grid-controls { 
+            display: flex; 
+            align-items: center; 
+            gap: 10px; 
+            background: var(--panel-bg); 
+            padding: 5px; 
+            border-radius: 8px;
+        }
+        .stepper-btn { 
+            background: #334155; 
+            color: white; 
+            border: none; 
+            border-radius: 6px; 
+            padding: 7px 11px; 
+            font-size: 0.95rem; 
+            cursor: pointer; 
+            touch-action: manipulation; 
+        }
+        .stepper-btn:active { background: #475569; }
+        #grid-size-label { font-weight: bold; width: 36px; text-align: center; color: #fff; font-size: 0.9rem; }
+
+        #controls { 
+            margin-bottom: 16px; 
+            display: flex; 
+            gap: 8px; 
+            flex-wrap: wrap; 
+            justify-content: center; 
+            width: 100%; 
+            max-width: 440px;
+        }
+        .btn { 
+            padding: 9px 13px; 
+            border-radius: 8px; 
+            border: none; 
+            font-size: 0.85rem;
+            font-weight: bold; 
+            cursor: pointer; 
+            transition: 0.2s; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center;
+        }
+        .btn-audio { background: #38bdf8; color: #0f172a; }
+        .btn-image { background: #a855f7; color: #fff; }
         .btn-record { background: #f59e0b; color: #0f172a; }
         .btn-record.recording { background: #ef4444; color: #fff; animation: pulseRecord 1s infinite; }
-        
+        .btn-random { background: #6366f1; color: #fff; display: none; }
         #refBtn { background: #22c55e; color: #fff; display: none; }
         #stopBtn { background: #ef4444; color: #fff; display: none; }
 
@@ -44,44 +139,137 @@
         }
 
         #grid-container { 
-            position: relative; padding: 10px; background: #1e293b; 
-            border-radius: 12px; transition: all 0.5s ease;
-            width: 100%; max-width: 400px; box-sizing: border-box;
+            position: relative; 
+            padding: 10px; 
+            background: var(--panel-bg); 
+            border-radius: 12px; 
+            transition: all 0.4s ease;
+            width: 100%; 
+            max-width: 400px; 
+            box-sizing: border-box;
         }
         #ghost-wave { 
-            position: absolute; top: 10px; left: 10px; right: 10px; bottom: 10px;
-            width: calc(100% - 20px); height: calc(100% - 20px); opacity: 0.15; pointer-events: none; 
+            position: absolute; 
+            top: 10px; left: 10px; right: 10px; bottom: 10px;
+            width: calc(100% - 20px); 
+            height: calc(100% - 20px); 
+            opacity: 0.2; 
+            pointer-events: none; 
         }
         #grid { 
             display: grid; 
             grid-template-columns: repeat(var(--cols, 3), 1fr); 
-            gap: 6px; width: 100%; position: relative; 
+            gap: 6px; 
+            width: 100%; 
+            position: relative; 
         }
         .piece { 
-            background: rgba(51, 65, 85, 0.8); cursor: grab; border-radius: 6px; 
-            border: 2px solid #475569; overflow: hidden; aspect-ratio: 1 / 1;
-            display: flex; align-items: center; justify-content: center;
-            position: relative; touch-action: none; transition: border-color 0.2s, transform 0.1s;
+            background: #334155; 
+            cursor: pointer; 
+            border-radius: 6px; 
+            border: 2px solid #475569; 
+            overflow: hidden; 
+            aspect-ratio: 1 / 1;
+            display: flex; 
+            align-items: center; 
+            justify-content: center;
+            position: relative; 
+            touch-action: manipulation; 
+            transition: border-color 0.2s, transform 0.1s, background-color 0.2s;
+            font-size: 1.8rem;
+            color: #64748b;
         }
-        .piece:active { cursor: grabbing; transform: scale(0.96); }
-        .piece.correct { border-color: #0ea5e9; background: rgba(14, 165, 233, 0.15); }
-        .piece.dragging { opacity: 0.5; border-style: dashed; }
+        .piece:active { transform: scale(0.96); background: #475569; }
+        .piece.correct { border-color: #0ea5e9; }
         
-        canvas { width: 100%; height: 100%; pointer-events: none; display: block; }
-        #status { margin-top: 20px; font-weight: bold; min-height: 20px; text-align: center; font-size: 0.9rem;}
+        /* Blank/missing slide slot */
+        .piece.empty {
+            background: #0f172a !important;
+            border: 2px dashed #334155 !important;
+            cursor: default;
+            box-shadow: inset 0px 0px 10px rgba(0,0,0,0.5);
+            background-image: none !important;
+        }
+
+        #status { 
+            margin: 14px 0 6px; 
+            font-weight: bold; 
+            min-height: 20px; 
+            text-align: center; 
+            font-size: 0.9rem;
+            max-width: 420px;
+            line-height: 1.4;
+        }
+
+        /* Mobile-Friendly Instructions Section */
+        #instructions-card {
+            width: 100%;
+            max-width: 400px;
+            background: var(--panel-bg);
+            border: 1px solid #334155;
+            border-radius: 10px;
+            margin-top: 12px;
+            box-sizing: border-box;
+            overflow: hidden;
+        }
+        #instructions-card summary {
+            padding: 12px 14px;
+            font-size: 0.85rem;
+            font-weight: bold;
+            color: var(--accent-cyan);
+            cursor: pointer;
+            list-style: none;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            touch-action: manipulation;
+        }
+        #instructions-card summary::-webkit-details-marker {
+            display: none;
+        }
+        #instructions-card summary::after {
+            content: '▼';
+            font-size: 0.7rem;
+            color: #94a3b8;
+            transition: transform 0.2s ease;
+        }
+        #instructions-card[open] summary::after {
+            transform: rotate(180deg);
+        }
+        .instructions-body {
+            padding: 0 14px 14px;
+            font-size: 0.82rem;
+            color: #cbd5e1;
+            line-height: 1.5;
+            border-top: 1px solid rgba(51, 65, 85, 0.6);
+            padding-top: 10px;
+        }
+        .instructions-body ul {
+            margin: 0;
+            padding-left: 18px;
+        }
+        .instructions-body li {
+            margin-bottom: 6px;
+        }
+        .instructions-body li:last-child {
+            margin-bottom: 0;
+        }
+        .instructions-body strong {
+            color: #fff;
+        }
 
         @keyframes pulse {
             0% { transform: scale(1); box-shadow: 0 0 0px #38bdf8; }
             50% { transform: scale(1.02); box-shadow: 0 0 25px #38bdf8; }
             100% { transform: scale(1); box-shadow: 0 0 0px #38bdf8; }
         }
-        .victory { animation: pulse 2s infinite ease-in-out; border: 2px solid #38bdf8; }
+        .victory { animation: pulse 2s infinite ease-in-out; border: 2px solid #22c55e; }
     </style>
 </head>
 <body>
 
     <div id="top-bar">
-        <button id="homeBtn" onclick="window.location.href='index.html'">◀ Home</button>
+        <button id="homeBtn" onclick="window.location.href='/Clean-start/index.html'">◀ Home</button>
         <div id="grid-controls">
             <button class="stepper-btn" onclick="changeGridSize(-1)">➖</button>
             <span id="grid-size-label">3x3</span>
@@ -89,15 +277,27 @@
         </div>
     </div>
 
+    <!-- Mode Selector Navigation -->
+    <div class="mode-selector">
+        <button class="mode-btn active" id="btn-mode-easy" onclick="setMode('easy')">Easy (Audio & Image)</button>
+        <button class="mode-btn" id="btn-mode-medium" onclick="setMode('medium')">Medium (Waveform)</button>
+        <button class="mode-btn" id="btn-mode-hard" onclick="setMode('hard')">Hard (Pure Audio)</button>
+    </div>
+
     <div id="controls">
-        <label class="btn btn-upload" id="uploadLabel">
-            📂 LOAD FILE
+        <label class="btn btn-audio">
+            📂 LOAD AUDIO
             <input type="file" id="audioUpload" accept="audio/*" style="display: none;">
+        </label>
+
+        <label class="btn btn-image" id="labelImageUpload">
+            🖼️ LOAD IMAGE
+            <input type="file" id="imageUpload" accept="image/*" style="display: none;">
         </label>
         
         <button id="recordBtn" class="btn btn-record">🎤 RECORD</button>
-        
-        <button id="refBtn" class="btn" onclick="playReference()">REFERENCE</button>
+        <button id="randomBtn" class="btn btn-random" onclick="manualShuffle()">🔀 SHUFFLE</button>
+        <button id="refBtn" class="btn" onclick="playReference()">REF AUDIO</button>
         <button id="stopBtn" class="btn" onclick="stopEverything()">STOP</button>
     </div>
 
@@ -106,7 +306,24 @@
         <div id="grid" style="--cols: 3;"></div>
     </div>
 
-    <p id="status">Upload a track or record audio to start!</p>
+    <p id="status">Upload audio or record to build your sliding puzzle!</p>
+
+    <!-- Bottom Instructions Section -->
+    <details id="instructions-card" open>
+        <summary>📖 How to Play & Game Modes</summary>
+        <div class="instructions-body">
+            <ul>
+                <li><strong>Load or Record:</strong> Tap <strong>Load Audio</strong> to pick a sound file, or tap <strong>Record</strong> to capture your microphone.</li>
+                <li><strong>Slide to Solve:</strong> Tap any tile directly next to the empty dashed slot to slide it into place and hear its audio slice.</li>
+                <li><strong>Check Your Progress:</strong> Tiles glow with a blue border when placed in their correct spot. Use <strong>Ref Audio</strong> anytime to hear the full track.</li>
+                <li><strong>Difficulty Modes:</strong>
+                    <br>• <strong>Easy:</strong> Combine custom images with audio and a faint background guide.
+                    <br>• <strong>Medium:</strong> Rebuild the track using sliced purple audio waveforms.
+                    <br>• <strong>Hard:</strong> Pure ear training—no visual clues on the tiles!
+                </li>
+            </ul>
+        </div>
+    </details>
 
     <script>
         let audioCtx, mainBuffer;
@@ -116,17 +333,72 @@
         let audioChunks = [];
         let isRecording = false;
         
+        let currentMode = 'easy'; // 'easy' | 'medium' | 'hard'
         let gridSize = 3; 
         let totalPieces = gridSize * gridSize;
         let pieces = [];
-        let draggedIdx = null; // Track explicit drag indices natively across mouse/touch
+        
+        let waveformImageSrc = null; 
+        let userLoadedImage = null;
 
+        function setMode(mode) {
+            currentMode = mode;
+            document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+            document.getElementById(`btn-mode-${mode}`).classList.add('active');
+
+            const imgUploadBtn = document.getElementById('labelImageUpload');
+            const ghostCanvas = document.getElementById('ghost-wave');
+
+            if (mode === 'easy') {
+                imgUploadBtn.style.display = 'inline-flex';
+                ghostCanvas.style.display = 'block';
+            } else if (mode === 'medium') {
+                imgUploadBtn.style.display = 'none';
+                ghostCanvas.style.display = 'block';
+            } else if (mode === 'hard') {
+                imgUploadBtn.style.display = 'none';
+                ghostCanvas.style.display = 'none';
+            }
+
+            generateWaveformGridImage();
+            render();
+        }
+
+        // Guaranteed-solvable random walk
         function scramblePieces() {
-            do {
-                pieces = Array.from({length: totalPieces}, (_, i) => i).sort(() => Math.random() - 0.5);
-            } while (pieces.every((p, i) => p === i) && totalPieces > 1); // Avoid accidental pre-solved states
+            pieces = Array.from({length: totalPieces}, (_, i) => i);
+            let emptyIdx = totalPieces - 1; 
+            
+            for (let i = 0; i < 200; i++) {
+                let row = Math.floor(emptyIdx / gridSize);
+                let col = emptyIdx % gridSize;
+                let validMoves = [];
+
+                if (row > 0) validMoves.push(emptyIdx - gridSize);    
+                if (row < gridSize - 1) validMoves.push(emptyIdx + gridSize); 
+                if (col > 0) validMoves.push(emptyIdx - 1);       
+                if (col < gridSize - 1) validMoves.push(emptyIdx + 1); 
+
+                let randomMove = validMoves[Math.floor(Math.random() * validMoves.length)];
+                
+                [pieces[emptyIdx], pieces[randomMove]] = [pieces[randomMove], pieces[emptyIdx]];
+                emptyIdx = randomMove;
+            }
+
+            if (pieces.every((p, i) => p === i)) {
+                scramblePieces();
+            }
         }
         scramblePieces(); 
+
+        function manualShuffle() {
+            if (!mainBuffer && !userLoadedImage) return;
+            stopEverything();
+            scramblePieces();
+            document.getElementById('grid-container').classList.remove('victory');
+            document.getElementById('status').innerText = "Matrix scrambled! Slide the tiles adjacent to the gap.";
+            render();
+        }
 
         function changeGridSize(dir) {
             let newSize = gridSize + dir;
@@ -141,9 +413,9 @@
                 stopEverything();
                 document.getElementById('grid-container').classList.remove('victory');
                 
-                if (mainBuffer) {
-                    document.getElementById('status').innerText = `${totalPieces} Puzzle Pieces Generated!`;
-                    drawGhostWave();
+                if (mainBuffer || userLoadedImage) {
+                    document.getElementById('status').innerText = `Matrix updated to ${gridSize}x${gridSize}!`;
+                    generateWaveformGridImage();
                 }
                 render();
             }
@@ -166,13 +438,14 @@
                 
                 document.getElementById('refBtn').style.display = 'inline-block';
                 document.getElementById('stopBtn').style.display = 'inline-block';
+                document.getElementById('randomBtn').style.display = 'inline-block';
                 
-                status.innerText = `${totalPieces} Fragments Mixed. Order the Sound!`;
+                status.innerText = "Audio loaded! Slide the blocks adjacent to the gap to solve.";
                 
                 scramblePieces();
                 document.getElementById('grid-container').classList.remove('victory');
                 
-                drawGhostWave();
+                generateWaveformGridImage();
                 render();
             } catch (e) {
                 status.innerText = "❌ Error reading audio file!";
@@ -183,13 +456,32 @@
         document.getElementById('audioUpload').addEventListener('change', function(e) {
             const file = e.target.files[0];
             if (!file) return;
-            
             initAudioCtx();
             const reader = new FileReader();
-            reader.onload = async function(ev) {
-                await processAudioData(ev.target.result);
-            };
+            reader.onload = async function(ev) { await processAudioData(ev.target.result); };
             reader.readAsArrayBuffer(file);
+        });
+
+        document.getElementById('imageUpload').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(ev) {
+                const img = new Image();
+                img.onload = function() {
+                    userLoadedImage = img;
+                    document.getElementById('randomBtn').style.display = 'inline-block';
+                    document.getElementById('status').innerText = "Image loaded! Slide tiles to rebuild.";
+                    
+                    scramblePieces();
+                    document.getElementById('grid-container').classList.remove('victory');
+                    
+                    generateWaveformGridImage();
+                    render();
+                };
+                img.src = ev.target.result;
+            };
+            reader.readAsDataURL(file);
         });
 
         document.getElementById('recordBtn').addEventListener('click', async () => {
@@ -201,26 +493,21 @@
                     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
                     mediaRecorder = new MediaRecorder(stream);
                     audioChunks = [];
-
-                    mediaRecorder.ondataavailable = e => {
-                        if (e.data.size > 0) audioChunks.push(e.data);
-                    };
-
+                    mediaRecorder.ondataavailable = e => { if (e.data.size > 0) audioChunks.push(e.data); };
                     mediaRecorder.onstop = async () => {
                         initAudioCtx();
                         const audioBlob = new Blob(audioChunks);
                         const arrayBuffer = await audioBlob.arrayBuffer();
                         await processAudioData(arrayBuffer);
                     };
-
                     mediaRecorder.start();
                     isRecording = true;
-                    recordBtn.innerText = "🛑 STOP RECORDING";
+                    recordBtn.innerText = "🛑 STOP";
                     recordBtn.classList.add('recording');
-                    status.innerText = "🔴 Capturing environment audio...";
+                    status.innerText = "🔴 Capturing mic feed...";
                 } catch (err) {
-                    status.innerText = "❌ Mic access denied or failed.";
-                    console.error("Mic error:", err);
+                    status.innerText = "❌ Microphone access failed.";
+                    console.error(err);
                 }
             } else {
                 mediaRecorder.stop();
@@ -236,7 +523,7 @@
         }
 
         function playSlice(idx) {
-            if (!mainBuffer) return;
+            if (!mainBuffer || idx === totalPieces - 1) return;
             stopEverything(); 
             const source = audioCtx.createBufferSource();
             const gainNode = audioCtx.createGain();
@@ -249,7 +536,6 @@
             source.connect(gainNode);
             gainNode.connect(audioCtx.destination);
             
-            // Mitigate standard canvas partition clicks/pops with envelope fades
             gainNode.gain.setValueAtTime(0.001, audioCtx.currentTime);
             gainNode.gain.exponentialRampToValueAtTime(1, audioCtx.currentTime + 0.01);
             gainNode.gain.setValueAtTime(1, audioCtx.currentTime + playDuration - 0.01);
@@ -267,19 +553,15 @@
             source.connect(audioCtx.destination);
             source.start(0);
             activeSources.push(source);
-            document.getElementById('status').innerText = "Streaming Master Reference...";
         }
 
-        // Generates sub-sampled real peaks from the main AudioBuffer
         function extractWaveformData(buffer, pointsNeeded) {
             if (!buffer) return new Float32Array(pointsNeeded).fill(0);
-            const rawData = buffer.getChannelData(0); // Gather Left/Mono data
+            const rawData = buffer.getChannelData(0);
             const step = Math.floor(rawData.length / pointsNeeded);
             const peaks = new Float32Array(pointsNeeded);
-            
             for (let i = 0; i < pointsNeeded; i++) {
-                let max = 0;
-                let start = i * step;
+                let max = 0; let start = i * step;
                 for (let j = 0; j < step; j++) {
                     let val = Math.abs(rawData[start + j] || 0);
                     if (val > max) max = val;
@@ -289,160 +571,140 @@
             return peaks;
         }
 
-        function drawGhostWave() {
-            const canvas = document.getElementById('ghost-wave');
-            const container = document.getElementById('grid-container');
-            const size = container.clientWidth - 20;
-            canvas.width = size; canvas.height = size;
+        function generateWaveformGridImage() {
+            if (!mainBuffer && !userLoadedImage) return;
             
+            const canvas = document.createElement('canvas');
+            const size = 600; 
+            canvas.width = size;
+            canvas.height = size;
             const ctx = canvas.getContext('2d');
-            ctx.clearRect(0, 0, size, size);
             
-            if (!mainBuffer) return;
-            
-            const totalPoints = size;
-            const peaks = extractWaveformData(mainBuffer, totalPoints);
-            
-            ctx.strokeStyle = '#38bdf8'; 
-            ctx.lineWidth = 1.5;
-            ctx.beginPath();
-            
-            // Maps mono data linearly down the sequential row matrix wrapping system
-            for (let x = 0; x < size; x++) {
-                const amp = peaks[x] * (size / gridSize / 2.5); 
-                const row = Math.floor((x / size) * gridSize);
-                const centerY = (row * (size / gridSize)) + (size / gridSize / 2);
+            if (currentMode === 'easy' && userLoadedImage) {
+                ctx.drawImage(userLoadedImage, 0, 0, size, size);
+            } else {
+                ctx.fillStyle = '#1e293b';
+                ctx.fillRect(0, 0, size, size);
                 
-                if (x === 0 || Math.floor(((x-1)/size)*gridSize) !== row) {
-                    ctx.moveTo(x, centerY);
+                if (mainBuffer) {
+                    const cellSize = size / gridSize;
+                    const totalPoints = size * gridSize; 
+                    const peaks = extractWaveformData(mainBuffer, totalPoints);
+                    
+                    ctx.strokeStyle = '#a855f7'; 
+                    ctx.lineWidth = 2.5;
+                    ctx.shadowBlur = 6;
+                    ctx.shadowColor = ctx.strokeStyle;
+                    
+                    for (let row = 0; row < gridSize; row++) {
+                        for (let col = 0; col < gridSize; col++) {
+                            const cellIndex = (row * gridSize) + col;
+                            if (cellIndex === totalPieces - 1) continue;
+
+                            const startX = col * cellSize;
+                            const centerY = (row * cellSize) + (cellSize / 2);
+                            
+                            ctx.beginPath();
+                            const segmentPoints = size / gridSize;
+                            const segmentStartPeakIdx = cellIndex * segmentPoints;
+
+                            for (let localX = 0; localX < cellSize; localX++) {
+                                const globalX = startX + localX;
+                                const peakIdx = Math.floor(segmentStartPeakIdx + ((localX / cellSize) * segmentPoints));
+                                const amp = (peaks[peakIdx] || 0) * (cellSize / 2.3); 
+                                
+                                if (localX === 0) ctx.moveTo(globalX, centerY);
+                                ctx.lineTo(globalX, centerY - amp);
+                                ctx.lineTo(globalX, centerY + amp);
+                            }
+                            ctx.stroke();
+                        }
+                    }
                 }
-                // Renders top side mirroring of waveforms
-                ctx.lineTo(x, centerY - amp);
             }
-            ctx.stroke();
+            
+            waveformImageSrc = canvas.toDataURL();
+
+            const ghostCanvas = document.getElementById('ghost-wave');
+            if (currentMode === 'hard') {
+                ghostCanvas.style.display = 'none';
+            } else {
+                ghostCanvas.style.display = 'block';
+                ghostCanvas.width = size; 
+                ghostCanvas.height = size;
+                const gCtx = ghostCanvas.getContext('2d');
+                gCtx.clearRect(0, 0, size, size);
+                gCtx.globalAlpha = 0.15;
+                gCtx.drawImage(canvas, 0, 0, size, size);
+            }
         }
 
         function render() {
             const grid = document.getElementById('grid');
             const container = document.getElementById('grid-container');
             grid.innerHTML = '';
+            
             const isSolved = pieces.every((p, i) => p === i);
-
-            // Dynamically recalculate internal scaling widths
-            const parentWidth = container.clientWidth - 20;
-            const pieceWidth = (parentWidth - (6 * (gridSize - 1))) / gridSize;
+            const blankValue = totalPieces - 1; 
 
             pieces.forEach((pIdx, i) => {
                 const div = document.createElement('div');
-                div.className = `piece ${pIdx === i ? 'correct' : ''}`;
                 div.setAttribute('data-index', i);
                 
-                const cvs = document.createElement('canvas');
-                cvs.width = 120; cvs.height = 120;
-                div.appendChild(cvs);
-                
-                const ctx = cvs.getContext('2d');
-                ctx.strokeStyle = pIdx === i ? '#38bdf8' : '#64748b';
-                ctx.lineWidth = 3;
-                
-                if (mainBuffer) {
-                    // Extract exact section matching this segment index layout
-                    const resolution = 120;
-                    const overallSamplesNeeded = resolution * totalPieces;
-                    const entireWeave = extractWaveformData(mainBuffer, overallSamplesNeeded);
+                if (pIdx === blankValue && !isSolved && (mainBuffer || userLoadedImage)) {
+                    div.className = 'piece empty';
+                } else {
+                    div.className = `piece ${pIdx === i ? 'correct' : ''}`;
                     
-                    const sliceStart = pIdx * resolution;
-                    ctx.beginPath();
-                    ctx.moveTo(0, 60);
+                    const origCol = pIdx % gridSize;
+                    const origRow = Math.floor(pIdx / gridSize);
                     
-                    for (let x = 0; x < resolution; x++) {
-                        const val = entireWeave[sliceStart + x] || 0;
-                        const amp = val * 50; // Normalize peak height bounds
-                        ctx.lineTo(x, 60 - amp);
+                    if (currentMode === 'hard') {
+                        div.style.backgroundImage = 'none';
+                    } else if (waveformImageSrc) {
+                        div.style.backgroundImage = `url(${waveformImageSrc})`;
+                        div.style.backgroundSize = `${gridSize * 100}% ${gridSize * 100}%`;
+                        div.style.backgroundPosition = `${(origCol / (gridSize - 1)) * 100}% ${(origRow / (gridSize - 1)) * 100}%`;
                     }
-                    ctx.stroke();
-                    
-                    // Mirror draw the bottom track line
-                    ctx.beginPath();
-                    ctx.moveTo(0, 60);
-                    for (let x = 0; x < resolution; x++) {
-                        const val = entireWeave[sliceStart + x] || 0;
-                        const amp = val * 50;
-                        ctx.lineTo(x, 60 + amp);
-                    }
-                    ctx.stroke();
                 }
 
-                // --- DESKTOP DRAG EVENTS ---
-                div.draggable = true;
-                div.ondragstart = (e) => {
-                    draggedIdx = i;
-                    div.classList.add('dragging');
-                    e.dataTransfer.setData('text/plain', i);
-                };
-                div.ondragend = () => div.classList.remove('dragging');
-                div.ondragover = (e) => e.preventDefault();
-                div.ondrop = (e) => {
-                    e.preventDefault();
-                    const from = draggedIdx !== null ? draggedIdx : e.dataTransfer.getData('text');
-                    executeSwap(parseInt(from), i);
-                };
-
-                // --- MOBILE TOUCH OVERLAYS ---
-                div.addEventListener('touchstart', (e) => {
-                    // Tapping single item still reviews chunk output
-                    if(e.touches.length === 1) {
-                        draggedIdx = i;
-                    }
-                }, {passive: true});
-
-                div.addEventListener('touchend', (e) => {
-                    const changedTouch = e.changedTouches[0];
-                    const targetEl = document.elementFromPoint(changedTouch.clientX, changedTouch.clientY);
-                    const dropZone = targetEl ? targetEl.closest('.piece') : null;
+                const movePiece = (e) => {
+                    if (e) e.preventDefault();
+                    if ((!mainBuffer && !userLoadedImage) || isSolved) return;
                     
-                    if (dropZone) {
-                        const toIndex = parseInt(dropZone.getAttribute('data-index'));
-                        if (draggedIdx !== null && draggedIdx !== toIndex) {
-                            executeSwap(draggedIdx, toIndex);
-                        } else {
-                            playSlice(pIdx);
-                        }
-                    } else {
-                        playSlice(pIdx);
-                    }
-                    draggedIdx = null;
-                });
+                    const blankCurrentIdx = pieces.indexOf(blankValue);
+                    
+                    const currentPercentRow = Math.floor(i / gridSize);
+                    const currentPercentCol = i % gridSize;
+                    const blankPercentRow = Math.floor(blankCurrentIdx / gridSize);
+                    const blankPercentCol = blankCurrentIdx % gridSize;
 
-                // Standard Click handles base checks when ignoring Drag operations
-                div.onclick = (e) => {
-                    if(e.pointerType === 'mouse' || e.type === 'click') {
-                         playSlice(pIdx);
+                    const rowDiff = Math.abs(currentPercentRow - blankPercentRow);
+                    const colDiff = Math.abs(currentPercentCol - blankPercentCol);
+
+                    if ((rowDiff === 1 && colDiff === 0) || (rowDiff === 0 && colDiff === 1)) {
+                        [pieces[i], pieces[blankCurrentIdx]] = [pieces[blankCurrentIdx], pieces[i]];
+                        if (mainBuffer) playSlice(pIdx);
+                        render();
                     }
                 };
+
+                div.addEventListener('click', movePiece);
+                div.addEventListener('touchstart', movePiece, {passive: false});
 
                 grid.appendChild(div);
             });
 
-            function executeSwap(from, to) {
-                if (isNaN(from) || isNaN(to)) return;
-                [pieces[from], pieces[to]] = [pieces[to], pieces[from]];
-                playSlice(pieces[to]);
-                render();
-            }
-
-            if (isSolved && mainBuffer) { 
-                document.getElementById('status').innerText = "🎉 HARMONY RESTORED!";
+            if (isSolved && (mainBuffer || userLoadedImage)) { 
+                document.getElementById('status').innerText = "🎉 SLIDER SOLVED SUCCESSFULLY!";
                 container.classList.add('victory');
-                playReference();
+                if (mainBuffer) playReference();
             }
         }
         
-        window.addEventListener('resize', () => {
-            drawGhostWave();
+        window.addEventListener('DOMContentLoaded', () => {
+            setMode('easy');
         });
-
-        render();
     </script>
 </body>
 </html>
